@@ -3,265 +3,90 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Modern Multiplayer Chess — v2</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<title>Chess Fixed v3</title>
 <style>
-  :root{
-    --bg:#0f1724; --panel:#0b1220; --muted:#94a3b8; --accent:#7c3aed; --accent-2:#06b6d4;
-    --glass: rgba(255,255,255,0.04);
-  }
-  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
-  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071024 0%, #081426 50%);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:28px;}
-  .container{width:1100px;max-width:100%;}
-  .card{background:var(--panel);border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(2,6,23,0.6);}
-  header{display:flex;gap:12px;align-items:center;margin-bottom:12px;}
-  .logo{width:56px;height:56px;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 8px 26px rgba(124,58,237,0.12)}
-  .logo img{width:48px;height:48px;object-fit:cover;filter:brightness(1.1)}
-  h1{font-size:20px;margin:0}
-  p.lead{margin:0;color:var(--muted);font-size:13px}
-  .menu{display:flex;gap:12px;margin-bottom:16px}
-  .menu button{padding:10px 14px;border-radius:10px;border:0;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
-  .menu button.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
-  .layout{display:grid;grid-template-columns:520px 1fr;gap:20px}
-  /* left column */
-  .left-col{display:flex;flex-direction:column;gap:12px}
-  .input{padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-  .row{display:flex;gap:8px;align-items:center}
-  .primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:0;padding:10px 12px;color:white;font-weight:700;cursor:pointer;border-radius:10px}
-  /* board */
-  #board{display:grid;grid-template-columns:repeat(8,66px);grid-template-rows:repeat(8,66px);border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.02)}
-  .square{width:66px;height:66px;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none;transition:transform 150ms ease, background 120ms}
-  .light{background:linear-gradient(180deg,#f2e7d3,#eadfc2)}
-  .dark{background:linear-gradient(180deg,#b58863,#a67b54)}
-  .selected{outline:3px solid rgba(124,58,237,0.95);transform:scale(1.05)}
-  .lastMove{box-shadow:inset 0 0 0 3px rgba(6,182,212,0.25)}
-  .small-muted{color:var(--muted);font-size:13px}
-  .players-list{display:flex;flex-direction:column;gap:8px}
-  .player-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
-  /* responsive */
-  @media(max-width:980px){ .layout{grid-template-columns:1fr} #board{transform:scale(0.85)} }
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px;background:#071024;color:#e6eef8}
+  #app{display:flex;gap:20px}
+  #board{display:grid;grid-template-columns:repeat(8,64px);grid-template-rows:repeat(8,64px);border-radius:8px;overflow:hidden;transition:transform .2s ease}
+  .square{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:36px;user-select:none;cursor:pointer;transition:background .12s, transform .12s}
+  .light{background:#f0d9b5}
+  .dark{background:#b58863}
+  .selected{outline:3px solid #7c3aed;transform:scale(1.05)}
+  .lastMove{box-shadow:inset 0 0 0 4px rgba(6,182,212,0.25)}
+  .piece{display:inline-block;transition:transform .2s}
+  #board.rotated{transform:rotate(180deg)}
+  #board.rotated .piece{transform:rotate(180deg)}
+  .panel{width:360px}
+  button{padding:8px 10px;border-radius:8px;border:0;background:#7c3aed;color:white;cursor:pointer}
+  .info{margin-bottom:8px}
 </style>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <header>
-        <div class="logo"><img src="assets/logo.png" alt="logo" /></div>
-        <div>
-          <h1>Modern Multiplayer Chess</h1>
-          <p class="lead">Clean, responsive, and ready to play with friends.</p>
-        </div>
-      </header>
-
-      <div class="menu" role="tablist" aria-label="Main menu">
-        <button id="menuHome" class="active">Main Menu</button>
-        <button id="menuCreate">Create</button>
-        <button id="menuJoin">Join</button>
-        <button id="menuHow">How to</button>
-      </div>
-
-      <div class="layout">
-        <div class="left-col">
-          <!-- Main menu view -->
-          <div id="viewHome" class="view">
-            <div class="row" style="align-items:center;justify-content:space-between">
-              <div>
-                <div class="small-muted">Welcome</div>
-                <div style="font-weight:700;font-size:18px">Play chess with friends — create a room or join by code.</div>
-              </div>
-              <div>
-                <button id="quickCreate" class="primary">Quick Create</button>
-              </div>
-            </div>
-            <div style="margin-top:12px" class="card">
-              <div class="small-muted">Active session</div>
-              <div id="sessionInfo">Not in a room</div>
-            </div>
-          </div>
-
-          <!-- Create view -->
-          <div id="viewCreate" class="view" style="display:none">
-            <div class="small-muted">Create a new game</div>
-            <input id="createName" class="input" placeholder="Your display name (example: Alice)" />
-            <div style="display:flex;gap:8px;margin-top:8px">
-              <button id="createBtn" class="primary">Create Game</button>
-              <button id="createBack">Back</button>
-            </div>
-          </div>
-
-          <!-- Join view -->
-          <div id="viewJoin" class="view" style="display:none">
-            <div class="small-muted">Join an existing game</div>
-            <input id="joinName" class="input" placeholder="Your display name (example: Bob)" />
-            <input id="joinCode" class="input" placeholder="Room code (e.g., A7K4F3)" style="margin-top:8px" />
-            <div style="display:flex;gap:8px;margin-top:8px">
-              <button id="joinBtn" class="primary">Join</button>
-              <button id="joinBack">Back</button>
-            </div>
-          </div>
-
-          <div id="viewHow" class="view" style="display:none">
-            <div class="small-muted">How to play</div>
-            <div style="margin-top:8px" class="small-muted">Create, share room code, and play in real time. Use Quick Create to get a room instantly.</div>
-          </div>
-        </div>
-
-        <div>
-          <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <div>
-              <div id="statusLine" style="font-weight:700">Not connected</div>
-              <div class="small-muted" id="turnLine">Turn: -</div>
-            </div>
-            <div style="text-align:right">
-              <div class="small-muted">Players: <span id="playerCount">0</span></div>
-            </div>
-          </div>
-
-          <div style="display:flex;gap:16px;align-items:flex-start">
-            <div id="board" role="grid" aria-label="Chess board"></div>
-
-            <div style="width:260px;display:flex;flex-direction:column;gap:8px">
-              <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <div><strong>Room</strong></div>
-                  <div><button id="copyUrl">Copy</button></div>
-                </div>
-                <div style="margin-top:8px">
-                  <div class="small-muted">Code</div>
-                  <div id="roomCode" style="font-weight:800;letter-spacing:2px">-</div>
-                  <div class="small-muted" style="margin-top:8px">Players</div>
-                  <div id="players" class="players-list"></div>
-                </div>
-              </div>
-
-              <div class="card">
-                <div><strong>Moves</strong></div>
-                <div id="pgn" style="height:160px;overflow:auto;color:var(--muted);margin-top:8px"></div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
+<div id="app">
+  <div>
+    <div id="board" role="grid" aria-label="Chess board"></div>
+    <div style="margin-top:12px">
+      <button id="reset">Reset</button>
+      <button id="flip">Flip</button>
     </div>
   </div>
+  <div class="panel">
+    <div class="info" id="status">Not connected</div>
+    <input id="name" placeholder="Your name" /><br/><br/>
+    <button id="create">Create</button>
+    <input id="room" placeholder="room id" />
+    <button id="join">Join</button>
+    <div style="margin-top:12px">
+      <strong>Players</strong>
+      <div id="players"></div>
+    </div>
+    <div style="margin-top:12px"><strong>Moves</strong><div id="pgn" style="color:#94a3b8"></div></div>
+  </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-// Improved frontend logic
 const socket = io();
-let roomId = null;
-let myColor = null;
-let currentTurn = null;
-let currentFen = null;
-let selected = null;
-let orientation = 'white';
-let myName = null;
-
-const boardEl = document.getElementById('board');
-const statusLine = document.getElementById('statusLine');
-const turnLine = document.getElementById('turnLine');
-const pgnEl = document.getElementById('pgn');
+const board = document.getElementById('board');
+const status = document.getElementById('status');
 const playersEl = document.getElementById('players');
-const playerCountEl = document.getElementById('playerCount');
-const roomCodeEl = document.getElementById('roomCode');
-const sessionInfo = document.getElementById('sessionInfo');
+const pgnEl = document.getElementById('pgn');
 
-// Unicode pieces
-const UNICODE = {
-  'p':'\u265F','r':'\u265C','n':'\u265E','b':'\u265D','q':'\u265B','k':'\u265A',
-  'P':'\u2659','R':'\u2656','N':'\u2658','B':'\u2657','Q':'\u2655','K':'\u2654'
-};
+let roomId = null, myColor = null, currentTurn = null, selected = null, myName = null;
+const UNICODE = {'p':'\u265F','r':'\u265C','n':'\u265E','b':'\u265D','q':'\u265B','k':'\u265A','P':'\u2659','R':'\u2656','N':'\u2658','B':'\u2657','Q':'\u2655','K':'\u2654'};
 
-function setView(viewId){
-  document.querySelectorAll('.view').forEach(v=>v.style.display='none');
-  document.getElementById(viewId).style.display = 'block';
-  document.querySelectorAll('.menu button').forEach(b=>b.classList.remove('active'));
-  if(viewId==='viewHome') document.getElementById('menuHome').classList.add('active');
-  if(viewId==='viewCreate') document.getElementById('menuCreate').classList.add('active');
-  if(viewId==='viewJoin') document.getElementById('menuJoin').classList.add('active');
-  if(viewId==='viewHow') document.getElementById('menuHow').classList.add('active');
-}
-
-document.getElementById('menuHome').addEventListener('click', ()=>setView('viewHome'));
-document.getElementById('menuCreate').addEventListener('click', ()=>setView('viewCreate'));
-document.getElementById('menuJoin').addEventListener('click', ()=>setView('viewJoin'));
-document.getElementById('menuHow').addEventListener('click', ()=>setView('viewHow'));
-
-document.getElementById('quickCreate').addEventListener('click', ()=>{
-  document.getElementById('createName').value = 'Player';
-  document.getElementById('createBtn').click();
-});
-
-document.getElementById('createBtn').addEventListener('click', ()=>{
-  const name = document.getElementById('createName').value.trim() || 'Player';
-  myName = name;
-  socket.emit('create', { name }, (res)=>{
-    roomId = res.room;
-    joinRoom(roomId, name);
-  });
-});
-
-document.getElementById('joinBtn').addEventListener('click', ()=>{
-  const name = document.getElementById('joinName').value.trim() || 'Player';
-  const code = document.getElementById('joinCode').value.trim();
-  if(!code) return alert('Enter room code');
-  myName = name;
-  joinRoom(code, name);
-});
-
-document.getElementById('createBack').addEventListener('click', ()=>setView('viewHome'));
-document.getElementById('joinBack').addEventListener('click', ()=>setView('viewHome'));
-
-function joinRoom(code, name){
-  socket.emit('join', { room: code, name }, (r)=>{
-    if(!r.ok) return alert(r.err || 'Failed to join');
-    roomId = code;
-    myColor = r.color;
-    currentTurn = r.turn;
-    roomCodeEl.textContent = roomId;
-    updatePlayers(r.players);
-    setView('viewHome');
-    orientation = (myColor === 'b') ? 'black' : 'white';
-    createBoard();
-    renderFromFen(r.fen);
-    updateStatus();
-    sessionInfo.textContent = 'In room ' + roomId + ' as ' + name + ' (' + myColor + ')';
-  });
-}
-
+// Always create board with standard coordinates (a1 bottom-left from White view)
+// We'll rotate the entire board visually for Black to avoid remapping coordinates.
 function createBoard(){
-  boardEl.innerHTML = '';
-  const ranks = (orientation === 'white') ? [8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8];
-  const files = (orientation === 'white') ? ['a','b','c','d','e','f','g','h'] : ['h','g','f','e','d','c','b','a'];
-  for (let r of ranks){
-    for (let f of files){
+  board.innerHTML = '';
+  const ranks = [8,7,6,5,4,3,2,1];
+  const files = ['a','b','c','d','e','f','g','h'];
+  for(const r of ranks){
+    for(const f of files){
       const sq = f + r;
-      const fileIndex = f.charCodeAt(0)-96;
-      const div=document.createElement('div');
-      div.className='square ' + (((r + fileIndex) % 2 === 0)?'light':'dark');
-      div.dataset.sq=sq;
+      const div = document.createElement('div');
+      div.className = 'square ' + (((r + (f.charCodeAt(0)-96)) % 2 === 0) ? 'light':'dark');
+      div.dataset.sq = sq;
+      div.innerHTML = '<span class="piece"></span>';
       div.addEventListener('click', onSquareClick);
-      boardEl.appendChild(div);
+      board.appendChild(div);
     }
   }
 }
 
 function renderFromFen(fen){
-  currentFen = fen;
   if(!fen) return;
   const parts = fen.split(' ');
   const rows = parts[0].split('/');
   const sqs = {};
   for(let i=0;i<8;i++){
     const row = rows[i];
-    let file=1;
+    let file = 1;
     for(const ch of row){
       if(/[1-8]/.test(ch)){ file += parseInt(ch); }
       else {
         const rank = 8 - i;
-        const fileChar = String.fromCharCode(96+file);
+        const fileChar = String.fromCharCode(96 + file);
         const sq = fileChar + rank;
         sqs[sq] = ch;
         file++;
@@ -270,42 +95,26 @@ function renderFromFen(fen){
   }
   document.querySelectorAll('.square').forEach(div=>{
     const sq = div.dataset.sq;
-    div.textContent = sqs[sq] ? UNICODE[sqs[sq]] : '';
+    const piece = sqs[sq] ? UNICODE[sqs[sq]] : '';
+    div.querySelector('.piece').textContent = piece;
     div.classList.remove('selected','lastMove');
   });
-  updateStatus(currentTurn);
+  // update last move highlighting handled elsewhere
 }
 
-function updateStatus(){
-  statusLine.textContent = roomId ? ('Room: ' + roomId + ' | You: ' + (myName||'-')) : 'Not connected';
-  turnLine.textContent = 'Turn: ' + (currentTurn === 'w' ? 'White' : (currentTurn === 'b' ? 'Black' : '-'));
-  playerCountEl.textContent = playersEl.children.length;
-}
-
-function updatePlayers(arr){
-  playersEl.innerHTML = '';
-  for(const p of arr){
-    const d = document.createElement('div');
-    d.className='player-row';
-    d.innerHTML = '<div>' + (p.name||'Player') + '</div><div style="opacity:0.9">' + (p.color||'-') + '</div>';
-    playersEl.appendChild(d);
-  }
-  updateStatus();
-}
-
+// selection and move logic
 function isMyTurn(){ return myColor && currentTurn && myColor[0] === currentTurn; }
 
 function onSquareClick(e){
   const sq = e.currentTarget.dataset.sq;
-  if(!roomId) return flash('Join a room first');
-  // selection flow
+  if(!roomId){ alert('Join a room first'); return; }
   if(!selected){
-    if(!isMyTurn()) return; // only select on your turn
-    const piece = e.currentTarget.textContent;
+    if(!isMyTurn()) return;
+    const piece = e.currentTarget.querySelector('.piece').textContent;
     if(!piece) return;
-    const isWhitePiece = piece.charCodeAt(0) >= 0x2654 && piece.charCodeAt(0) <= 0x2659;
-    const isBlackPiece = piece.charCodeAt(0) >= 0x265A && piece.charCodeAt(0) <= 0x265F;
-    if((myColor === 'w' && !isWhitePiece) || (myColor === 'b' && !isBlackPiece)) return;
+    const isWhite = piece.codePointAt(0) >= 0x2654 && piece.codePointAt(0) <= 0x2659;
+    const isBlack = piece.codePointAt(0) >= 0x265A && piece.codePointAt(0) <= 0x265F;
+    if((myColor === 'w' && !isWhite) || (myColor === 'b' && !isBlack)) return;
     selected = sq;
     e.currentTarget.classList.add('selected');
   } else {
@@ -314,23 +123,61 @@ function onSquareClick(e){
       document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
       return;
     }
-    // send move
     socket.emit('move', { room: roomId, from: selected, to: sq }, (res)=>{
-      if(!res.ok){
-        flash(res.err || 'Illegal move');
-      }
+      if(!res.ok) alert(res.err || 'Illegal move');
     });
     selected = null;
     document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
   }
 }
 
-function flash(text){
-  const el = document.createElement('div');
-  el.textContent = text;
-  el.style.position='fixed'; el.style.left='50%'; el.style.top='20px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(0,0,0,0.7)'; el.style.color='white'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.zIndex=9999;
-  document.body.appendChild(el);
-  setTimeout(()=>{ el.style.transition='opacity 260ms'; el.style.opacity=0; setTimeout(()=>el.remove(),260); }, 2000);
+// UI buttons
+document.getElementById('create').addEventListener('click', ()=>{
+  const name = document.getElementById('name').value.trim() || 'Player';
+  myName = name;
+  socket.emit('create', { name }, (res)=>{
+    roomId = res.room;
+    joinRoom(roomId, name);
+  });
+});
+document.getElementById('join').addEventListener('click', ()=>{
+  const name = document.getElementById('name').value.trim() || 'Player';
+  const code = document.getElementById('room').value.trim();
+  if(!code) return alert('Enter room id');
+  myName = name;
+  joinRoom(code, name);
+});
+document.getElementById('reset').addEventListener('click', ()=>{
+  if(!roomId) return alert('Join a room first');
+  socket.emit('reset', { room: roomId });
+});
+document.getElementById('flip').addEventListener('click', ()=>{
+  if(board.classList.contains('rotated')) board.classList.remove('rotated');
+  else board.classList.add('rotated');
+});
+
+function joinRoom(code, name){
+  socket.emit('join', { room: code, name }, (r)=>{
+    if(!r.ok) return alert(r.err || 'Failed to join');
+    roomId = code;
+    myColor = r.color;
+    currentTurn = r.turn;
+    // set visual rotation based on color
+    if(myColor === 'b') board.classList.add('rotated'); else board.classList.remove('rotated');
+    renderFromFen(r.fen);
+    updatePlayers(r.players);
+    status.textContent = 'In room ' + roomId + ' as ' + name + ' (' + myColor + ')';
+    pgnEl.textContent = r.pgn || '';
+  });
+}
+
+function updatePlayers(arr){
+  playersEl.innerHTML = '';
+  for(const p of arr){
+    const d = document.createElement('div');
+    d.textContent = p.name + ' (' + p.color + ')';
+    playersEl.appendChild(d);
+  }
 }
 
 // socket handlers
@@ -339,19 +186,16 @@ socket.on('state', (s)=>{
   if(s.fen) renderFromFen(s.fen);
   if(s.pgn) pgnEl.textContent = s.pgn;
   if(s.turn) currentTurn = s.turn;
-  updateStatus();
-  // highlight last move
   if(s.lastMove){
     setTimeout(()=>{
-      document.querySelectorAll('.square').forEach(d=>{ if([s.lastMove.from, s.lastMove.to].includes(d.dataset.sq)) d.classList.add('lastMove'); });
-    }, 30);
+      document.querySelectorAll('.square').forEach(d=>{
+        if([s.lastMove.from, s.lastMove.to].includes(d.dataset.sq)) d.classList.add('lastMove');
+      });
+    },20);
   }
 });
 
-// initial UI
-setView('viewHome');
 createBoard();
-
 </script>
 </body>
 </html>
