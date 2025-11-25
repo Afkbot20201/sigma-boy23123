@@ -250,7 +250,7 @@ function createBoard(){
 
 function renderFromFen(fen){
   currentFen = fen;
-  if(!fen || fen === 'startpos') return;
+  if(!fen) return;
   const parts = fen.split(' ');
   const rows = parts[0].split('/');
   const sqs = {};

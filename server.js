@@ -9,7 +9,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
-const games = {}; // roomId -> { chess, players: Map(socketId->name), colors: Map(socketid->'w'|'b') }
+const games = {};
 
 function makeId(len=6){
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -40,20 +40,17 @@ io.on('connection', (socket) => {
     }
     socket.join(room);
     g.players.set(socket.id, name || 'Guest');
-    // assign color if not assigned
     const assignedColors = Array.from(g.colors.values());
     if(!g.colors.has(socket.id)) {
       if(!assignedColors.includes('w')) g.colors.set(socket.id, 'w');
       else if(!assignedColors.includes('b')) g.colors.set(socket.id, 'b');
       else g.colors.set(socket.id, 'w');
     }
-    // prepare players array
     const playersArr = [];
     for(const [id, nm] of g.players.entries()){
       playersArr.push({id, name: nm, color: g.colors.get(id)});
     }
     cb({ ok: true, fen: g.chess.fen(), pgn: g.chess.pgn(), color: g.colors.get(socket.id), turn: g.chess.turn(), players: playersArr });
-    // inform others
     io.to(room).emit('state', { fen: g.chess.fen(), pgn: g.chess.pgn(), turn: g.chess.turn(), players: playersArr });
   });
 
@@ -63,7 +60,6 @@ io.on('connection', (socket) => {
     const chess = g.chess;
     const playerColor = g.colors.get(socket.id);
     if(!playerColor) { cb && cb({ ok:false, err:'Not in room' }); return; }
-    // check turn: only allow if player's color matches chess.turn()
     if(playerColor !== chess.turn()) {
       cb && cb({ ok:false, err:'Not your turn' });
       return;
@@ -105,13 +101,12 @@ io.on('connection', (socket) => {
         playersArr.push({id, name: nm, color: g.colors.get(id)});
       }
       io.to(room).emit('state', { fen: g.chess.fen(), pgn: g.chess.pgn(), turn: g.chess.turn(), players: playersArr });
-      if(g.players.size === 0) delete games[room]; // cleanup
+      if(g.players.size === 0) delete games[room];
     }
     socket.leave(room);
   });
 
   socket.on('disconnect', () => {
-    // remove from any rooms
     for(const room of Object.keys(games)) {
       const g = games[room];
       if(g.players.has(socket.id)) {

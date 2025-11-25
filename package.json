@@ -1,5 +1,5 @@
 {
-  "name": "multiplayer-chess-modern-v2",
+  "name": "multiplayer-chess-fixed-final",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
