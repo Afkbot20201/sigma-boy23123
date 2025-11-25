@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Multiplayer Chess</title>
+<style>
+  body{font-family:system-ui, sans-serif; margin:20px; display:flex; gap:20px; align-items:flex-start;}
+  #board{display:grid; grid-template-columns:repeat(8,60px); grid-template-rows:repeat(8,60px); border:2px solid #333}
+  .square{width:60px;height:60px;display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;user-select:none}
+  .light{background:#f0d9b5}
+  .dark{background:#b58863}
+  .selected{outline:3px solid yellow}
+  #controls{width:320px}
+  #status{margin-top:10px;font-weight:600}
+  #pgn{white-space:pre-wrap; max-height:240px; overflow:auto; background:#fafafa;padding:8px;border:1px solid #ddd}
+  button{margin-top:8px;padding:8px 12px}
+  input{padding:6px}
+</style>
+</head>
+<body>
+  <div>
+    <div id="board"></div>
+    <div id="status">Not connected</div>
+  </div>
+  <div id="controls">
+    <div>
+      <button id="createBtn">Create Game</button>
+      <input id="roomInput" placeholder="Room ID" />
+      <button id="joinBtn">Join</button>
+    </div>
+    <div id="roomInfo"></div>
+    <div style="margin-top:8px">
+      <button id="resetBtn">Reset Game</button>
+    </div>
+    <h4>PGN</h4>
+    <div id="pgn"></div>
+    <h4>Hints</h4>
+    <ul>
+      <li>Click a piece to select, then click destination square.</li>
+      <li>Only legal moves are accepted (server validates).</li>
+      <li>Use room ID to share with opponent.</li>
+    </ul>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+// unicode pieces
+const UNICODE = {
+  'p':'\u265F','r':'\u265C','n':'\u265E','b':'\u265D','q':'\u265B','k':'\u265A',
+  'P':'\u2659','R':'\u2656','N':'\u2658','B':'\u2657','Q':'\u2655','K':'\u2654'
+};
+
+let currentFen = null;
+let selected = null;
+let roomId = null;
+let myColor = null;
+
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const pgnEl = document.getElementById('pgn');
+const roomInfoEl = document.getElementById('roomInfo');
+
+function createBoard(){
+  boardEl.innerHTML = '';
+  for(let r=8;r>=1;r--){
+    for(let f=1;f<=8;f++){
+      const file = String.fromCharCode(96+f);
+      const sq = file + r;
+      const div = document.createElement('div');
+      div.className = 'square ' + (((r+f)%2===0)?'light':'dark');
+      div.dataset.sq = sq;
+      div.addEventListener('click', onSquareClick);
+      boardEl.appendChild(div);
+    }
+  }
+}
+
+function renderFromFen(fen){
+  currentFen = fen;
+  const parts = fen.split(' ');
+  const rows = parts[0].split('/');
+  const sqs = {};
+  for(let i=0;i<8;i++){
+    const row = rows[i];
+    let file=1;
+    for(const ch of row){
+      if(/[1-8]/.test(ch)){ file += parseInt(ch); }
+      else {
+        const rank = 8 - i;
+        const fileChar = String.fromCharCode(96+file);
+        const sq = fileChar + rank;
+        sqs[sq] = ch;
+        file++;
+      }
+    }
+  }
+  // place
+  document.querySelectorAll('.square').forEach(div=>{
+    const sq = div.dataset.sq;
+    div.textContent = sqs[sq] ? UNICODE[sqs[sq]] : '';
+    div.classList.remove('selected');
+  });
+  updateStatus(parts[1]);
+}
+
+function updateStatus(turn){
+  let s = 'Room: ' + (roomId || '-') + ' | Players: - | You: ' + (myColor || '-') + ' | Turn: ' + (turn==='w' ? 'White' : 'Black');
+  statusEl.textContent = s;
+}
+
+function onSquareClick(e){
+  const sq = e.currentTarget.dataset.sq;
+  if(!roomId){ alert('Join a room first'); return; }
+  if(!selected){ // pick up
+    selected = sq;
+    e.currentTarget.classList.add('selected');
+  } else {
+    if(selected === sq){ selected = null; document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected')); return; }
+    // attempt move
+    socket.emit('move', {room: roomId, from: selected, to: sq}, (res) => {
+      if(!res.ok) { alert('Illegal move'); }
+      // else server will broadcast state update
+    });
+    selected = null;
+    document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
+  }
+}
+
+createBoard();
+
+document.getElementById('createBtn').addEventListener('click', ()=>{
+  socket.emit('create', (res)=>{
+    roomId = res.room;
+    document.getElementById('roomInput').value = roomId;
+    roomInfoEl.textContent = 'Created room ' + roomId + '. Share it to invite an opponent.';
+    socket.emit('join', {room: roomId}, (r)=>{ if(r.ok){ myColor = r.color; renderFromFen(r.fen); pgnEl.textContent = r.pgn || ''; updateStatus(r.turn); } });
+  });
+});
+
+document.getElementById('joinBtn').addEventListener('click', ()=>{
+  const v = document.getElementById('roomInput').value.trim();
+  if(!v) return alert('Enter room id');
+  roomId = v;
+  socket.emit('join', {room: roomId}, (r)=>{
+    if(!r.ok) return alert(r.err || 'Cannot join');
+    myColor = r.color;
+    renderFromFen(r.fen); pgnEl.textContent = r.pgn || '';
+    roomInfoEl.textContent = 'Joined room ' + roomId + '. You are ' + myColor;
+  });
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!roomId) return;
+  socket.emit('reset', {room: roomId}, (r)=>{ if(!r.ok) alert('Failed'); });
+});
+
+socket.on('state', (s)=>{
+  if(s.fen) renderFromFen(s.fen);
+  if(s.pgn) pgnEl.textContent = s.pgn;
+  if(s.players !== undefined) statusEl.textContent = 'Room: ' + (roomId || '-') + ' | Players: ' + s.players + ' | You: ' + (myColor || '-') + ' | Turn: ' + (s.turn==='w' ? 'White' : 'Black');
+});
+
+</script>
+</body>
+</html>
