@@ -1,16 +1,14 @@
-# Multiplayer Chess — minimal demo
+# Modernized Multiplayer Chess
 
-## Requirements
-- Node.js (16+)
-- npm
+This is an improved version of the minimal multiplayer chess demo:
+- Fixed move-turn validation on the server (server enforces turns and rejects out-of-turn moves).
+- Frontend prevents out-of-turn selection and handles illegal moves gracefully.
+- Modern UI with animations, lobby panel, room creation/join, flip button, sounds via WebAudio.
+- No authentication — intended as a demo. Improve for production use.
 
-## Install & run
+## Run locally
 ```bash
-cd project-multiplayer-chess
 npm install
 npm start
 ```
-
-Open http://localhost:3000 in two browser windows. Use "Create Game" to create a room and share the room ID with the opponent who uses "Join".
-
-This is a minimal demo: server validates moves using chess.js; no authentication, no reconnection logic, no persistent storage. Feel free to improve!
+Open `http://localhost:3000` in two browsers/windows. Create a game, share room code (or use a tunnel/cloudflare).

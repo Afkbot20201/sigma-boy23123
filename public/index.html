@@ -3,49 +3,167 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Multiplayer Chess</title>
+<title>Modern Multiplayer Chess</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  body{font-family:system-ui, sans-serif; margin:20px; display:flex; gap:20px; align-items:flex-start;}
-  #board{display:grid; grid-template-columns:repeat(8,60px); grid-template-rows:repeat(8,60px); border:2px solid #333}
-  .square{width:60px;height:60px;display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;user-select:none}
-  .light{background:#f0d9b5}
-  .dark{background:#b58863}
-  .selected{outline:3px solid yellow}
-  #controls{width:320px}
-  #status{margin-top:10px;font-weight:600}
-  #pgn{white-space:pre-wrap; max-height:240px; overflow:auto; background:#fafafa;padding:8px;border:1px solid #ddd}
-  button{margin-top:8px;padding:8px 12px}
-  input{padding:6px}
+  :root{
+    --bg:#0f1724; --panel:#0b1220; --muted:#94a3b8; --accent:#7c3aed; --accent-2:#06b6d4;
+    --glass: rgba(255,255,255,0.04);
+  }
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071024 0%, #081426 50%);color:#e6eef8;display:flex;align-items:flex-start;justify-content:center;padding:28px;}
+  .app{max-width:1100px;width:100%;display:grid;grid-template-columns:520px 1fr;gap:20px;}
+  .left, .right{background:var(--panel);border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(2,6,23,0.6);}
+  header{display:flex;gap:12px;align-items:center;margin-bottom:12px;}
+  .logo{width:48px;height:48px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 12px rgba(124,58,237,0.2)}
+  .logo img{width:40px;height:40px;object-fit:cover;filter:brightness(1.1)}
+  h1{font-size:18px;margin:0}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+  /* Lobby UI */
+  .lobby{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--glass);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;gap:8px;align-items:center}
+  input, button, select{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;padding:8px 10px;border-radius:8px;font-size:14px}
+  button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:0;padding:10px 12px;color:white;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(7,11,33,0.6)}
+  .code{font-weight:800;letter-spacing:2px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);display:inline-block}
+  .players{display:flex;flex-direction:column;gap:6px}
+  .player{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
+  /* Board */
+  #boardWrap{display:flex;gap:18px;align-items:flex-start;padding:12px}
+  #board{display:grid;grid-template-columns:repeat(8,64px);grid-template-rows:repeat(8,64px);border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.02)}
+  .square{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none;transition:transform 150ms ease, background 120ms}
+  .light{background:linear-gradient(180deg,#f2e7d3,#eadfc2)}
+  .dark{background:linear-gradient(180deg,#b58863,#a67b54)}
+  .selected{outline:3px solid rgba(124,58,237,0.95);transform:scale(1.05)}
+  .lastMove{box-shadow:inset 0 0 0 3px rgba(6,182,212,0.25)}
+  /* right panel */
+  .rightTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .status{font-weight:700}
+  .pgn{background:rgba(0,0,0,0.25);padding:8px;border-radius:8px;height:160px;overflow:auto;color:var(--muted);font-size:13px}
+  .controls{display:flex;gap:8px}
+  /* animations */
+  @keyframes floaty {0%{transform:translateY(0)}50%{transform:translateY(-4px)}100%{transform:translateY(0)}}
+  .logo{animation:floaty 5s ease-in-out infinite}
+  .fadeIn{animation:fade 250ms ease forwards}
+  @keyframes fade {from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* responsive */
+  @media(max-width:980px){.app{grid-template-columns:1fr;}.left{order:2} .right{order:1} #board{transform:scale(0.85)}}
 </style>
 </head>
 <body>
-  <div>
-    <div id="board"></div>
-    <div id="status">Not connected</div>
-  </div>
-  <div id="controls">
-    <div>
-      <button id="createBtn">Create Game</button>
-      <input id="roomInput" placeholder="Room ID" />
-      <button id="joinBtn">Join</button>
+  <div class="app">
+    <div class="left">
+      <header>
+        <div class="logo"><img src="assets/logo.png" alt="logo"></div>
+        <div>
+          <h1>Modern Multiplayer Chess</h1>
+          <p class="lead">Play online with friends — animated, responsive, and mobile-friendly.</p>
+        </div>
+      </header>
+
+      <div class="lobby card">
+        <div class="row">
+          <input id="nameInput" placeholder="Your name (optional)" />
+        </div>
+
+        <div class="row">
+          <button id="createBtn" class="primary">Create Game</button>
+          <div style="flex:1"></div>
+        </div>
+
+        <div class="row">
+          <input id="joinInput" placeholder="Enter room code" />
+          <button id="joinBtn">Join</button>
+        </div>
+
+        <div id="roomPanel" class="card" style="display:none">
+          <div class="row" style="justify-content:space-between">
+            <div>Room: <span id="roomCode" class="code">-</span></div>
+            <div class="controls">
+              <button id="copyBtn">Copy</button>
+              <button id="leaveBtn">Leave</button>
+            </div>
+          </div>
+          <div class="players" id="playersList"></div>
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <button id="startBtn">Reset Game</button>
+          <div style="flex:1"></div>
+        </div>
+      </div>
     </div>
-    <div id="roomInfo"></div>
-    <div style="margin-top:8px">
-      <button id="resetBtn">Reset Game</button>
+
+    <div class="right">
+      <div class="rightTop">
+        <div>
+          <div class="status" id="status">Not connected</div>
+          <div style="color:var(--muted);font-size:13px" id="turnInfo"></div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--muted);font-size:13px">Players: <span id="playerCount">0</span></div>
+        </div>
+      </div>
+
+      <div id="boardWrap">
+        <div id="board" aria-label="Chess board"></div>
+        <div style="width:260px;display:flex;flex-direction:column;gap:8px">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><strong>Moves</strong></div>
+              <div><button id="flipBtn">Flip</button></div>
+            </div>
+            <div id="pgn" class="pgn"></div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><strong>Controls</strong></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="soundToggle">Sound: On</button>
+              <button id="themeBtn">Theme</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
-    <h4>PGN</h4>
-    <div id="pgn"></div>
-    <h4>Hints</h4>
-    <ul>
-      <li>Click a piece to select, then click destination square.</li>
-      <li>Only legal moves are accepted (server validates).</li>
-      <li>Use room ID to share with opponent.</li>
-    </ul>
   </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+// Modernized frontend logic with safer move handling, flip, sounds, and UI polish
 const socket = io();
+let roomId = null;
+let myColor = null;
+let currentTurn = null;
+let currentFen = null;
+let selected = null;
+let autoFlip = true; // auto flip boards for black
+let orientation = 'white';
+
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const turnInfoEl = document.getElementById('turnInfo');
+const pgnEl = document.getElementById('pgn');
+const playersList = document.getElementById('playersList');
+const playerCountEl = document.getElementById('playerCount');
+
+// simple move sound via WebAudio
+let audioOn = true;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playClick(freq=880, duration=0.06){
+  if(!audioOn) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.frequency.value = freq;
+  o.type = 'sine';
+  g.gain.value = 0.02;
+  o.start();
+  setTimeout(()=>{ o.stop(); }, duration*1000);
+}
 
 // unicode pieces
 const UNICODE = {
@@ -53,26 +171,10 @@ const UNICODE = {
   'P':'\u2659','R':'\u2656','N':'\u2658','B':'\u2657','Q':'\u2655','K':'\u2654'
 };
 
-let currentFen = null;
-let selected = null;
-let roomId = null;
-let myColor = null;
-
-const boardEl = document.getElementById('board');
-const statusEl = document.getElementById('status');
-const pgnEl = document.getElementById('pgn');
-const roomInfoEl = document.getElementById('roomInfo');
-
-
 function createBoard(){
   boardEl.innerHTML = '';
-
-  const orientation = myColor === 'b' ? 'black' : 'white';
   const ranks = orientation === 'white' ? [8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8];
-  const files = orientation === 'white'
-        ? ['a','b','c','d','e','f','g','h']
-        : ['h','g','f','e','d','c','b','a'];
-
+  const files = orientation === 'white' ? ['a','b','c','d','e','f','g','h'] : ['h','g','f','e','d','c','b','a'];
   for (let r of ranks){
     for (let f of files){
       const sq = f + r;
@@ -83,9 +185,6 @@ function createBoard(){
       div.addEventListener('click', onSquareClick);
       boardEl.appendChild(div);
     }
-  }
-}
-
   }
 }
 
@@ -108,72 +207,152 @@ function renderFromFen(fen){
       }
     }
   }
-  // place
   document.querySelectorAll('.square').forEach(div=>{
     const sq = div.dataset.sq;
     div.textContent = sqs[sq] ? UNICODE[sqs[sq]] : '';
-    div.classList.remove('selected');
+    div.classList.remove('selected','lastMove');
   });
   updateStatus(parts[1]);
 }
 
 function updateStatus(turn){
-  let s = 'Room: ' + (roomId || '-') + ' | Players: - | You: ' + (myColor || '-') + ' | Turn: ' + (turn==='w' ? 'White' : 'Black');
-  statusEl.textContent = s;
+  currentTurn = turn;
+  document.getElementById('playerCount').textContent = document.getElementById('playersList').children.length || 0;
+  statusEl.textContent = 'Room: ' + (roomId || '-') + ' | You: ' + (myColor || '-');
+  turnInfoEl.textContent = 'Turn: ' + (turn === 'w' ? 'White' : 'Black');
+}
+
+function isMyTurn(){
+  if(!myColor || !currentTurn) return false;
+  return myColor[0] === currentTurn;
 }
 
 function onSquareClick(e){
   const sq = e.currentTarget.dataset.sq;
+
   if(!roomId){ alert('Join a room first'); return; }
-  if(!selected){ // pick up
+
+  // If a move selection exists and it's our turn, allow sending move. Else allow selecting our own piece when our turn.
+  if(!selected){
+    // allow selecting only on your turn
+    if(!isMyTurn()){ return; }
+    const piece = e.currentTarget.textContent;
+    if(!piece) return;
+    const isWhitePiece = piece.charCodeAt(0) >= 0x2654 && piece.charCodeAt(0) <= 0x2659;
+    const isBlackPiece = piece.charCodeAt(0) >= 0x265A && piece.charCodeAt(0) <= 0x265F;
+    if((myColor === 'w' && !isWhitePiece) || (myColor === 'b' && !isBlackPiece)) return;
     selected = sq;
     e.currentTarget.classList.add('selected');
+    playClick(1200, 0.04);
   } else {
-    if(selected === sq){ selected = null; document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected')); return; }
     // attempt move
-    socket.emit('move', {room: roomId, from: selected, to: sq}, (res) => {
-      if(!res.ok) { alert('Illegal move'); }
-      // else server will broadcast state update
+    if(selected === sq){
+      selected = null;
+      document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
+      return;
+    }
+    // send move to server
+    socket.emit('move', { room: roomId, from: selected, to: sq }, (res)=>{
+      if(!res.ok){
+        // show error but do not freeze
+        console.warn('move failed', res.err);
+        flashMessage(res.err || 'Illegal move');
+      } else {
+        playClick(700, 0.06);
+      }
     });
     selected = null;
     document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
   }
 }
 
-createBoard();
+function flashMessage(text){
+  const el = document.createElement('div');
+  el.textContent = text;
+  el.style.position='fixed'; el.style.left='50%'; el.style.top='24px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(0,0,0,0.6)'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.zIndex=9999; el.style.color='white';
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity 260ms'; el.style.opacity=0; setTimeout(()=>el.remove(),260); }, 2000);
+}
 
+// UI actions
 document.getElementById('createBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('nameInput').value.trim() || 'Guest';
   socket.emit('create', (res)=>{
     roomId = res.room;
-    document.getElementById('roomInput').value = roomId;
-    roomInfoEl.textContent = 'Created room ' + roomId + '. Share it to invite an opponent.';
-    socket.emit('join', {room: roomId}, (r)=>{ if(r.ok){ myColor = r.color; renderFromFen(r.fen); pgnEl.textContent = r.pgn || ''; updateStatus(r.turn); } });
+    document.getElementById('roomPanel').style.display='block';
+    document.getElementById('roomCode').textContent = roomId;
+    document.getElementById('playersList').innerHTML = '';
+    socket.emit('join', { room: roomId }, (r)=>{ if(r.ok){ myColor = r.color; renderFromFen(r.fen); pgnEl.textContent = r.pgn || ''; updateStatus(r.turn); if(autoFlip) orientation = (myColor==='b')?'black':'white'; createBoard(); renderFromFen(r.fen); } });
   });
 });
 
 document.getElementById('joinBtn').addEventListener('click', ()=>{
-  const v = document.getElementById('roomInput').value.trim();
+  const v = document.getElementById('joinInput').value.trim();
   if(!v) return alert('Enter room id');
   roomId = v;
-  socket.emit('join', {room: roomId}, (r)=>{
+  socket.emit('join', { room: roomId }, (r)=>{
     if(!r.ok) return alert(r.err || 'Cannot join');
     myColor = r.color;
-    renderFromFen(r.fen); pgnEl.textContent = r.pgn || '';
-    roomInfoEl.textContent = 'Joined room ' + roomId + '. You are ' + myColor;
+    document.getElementById('roomPanel').style.display='block';
+    document.getElementById('roomCode').textContent = roomId;
+    renderFromFen(r.fen);
+    pgnEl.textContent = r.pgn || '';
+    updateStatus(r.turn);
+    if(autoFlip) orientation = (myColor==='b')?'black':'white';
+    createBoard();
+    renderFromFen(r.fen);
   });
 });
 
-document.getElementById('resetBtn').addEventListener('click', ()=>{
-  if(!roomId) return;
-  socket.emit('reset', {room: roomId}, (r)=>{ if(!r.ok) alert('Failed'); });
+document.getElementById('copyBtn').addEventListener('click', ()=>{
+  navigator.clipboard.writeText(window.location.origin + '/' + roomId).then(()=>{ flashMessage('Copied URL'); });
+});
+document.getElementById('leaveBtn').addEventListener('click', ()=>{
+  if(roomId) socket.emit('leave', { room: roomId });
+  roomId = null; myColor = null;
+  document.getElementById('roomPanel').style.display='none';
+  document.getElementById('playersList').innerHTML='';
+  updateStatus('-');
+  createBoard();
+});
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  if(!roomId) return flashMessage('Join a room first');
+  socket.emit('reset', { room: roomId }, (r)=>{ if(!r.ok) flashMessage('Reset failed'); });
+});
+document.getElementById('flipBtn').addEventListener('click', ()=>{
+  orientation = (orientation==='white')?'black':'white';
+  createBoard();
+  renderFromFen(currentFen);
+});
+document.getElementById('soundToggle').addEventListener('click', ()=>{
+  audioOn = !audioOn;
+  document.getElementById('soundToggle').textContent = 'Sound: ' + (audioOn? 'On':'Off');
 });
 
+// socket handlers
 socket.on('state', (s)=>{
-  if(s.fen) renderFromFen(s.fen);
+  if(s.players !== undefined){
+    playerCountEl.textContent = s.players;
+    // Refresh player list simply with placeholders (server doesn't send names in this simple demo)
+    const p = s.players || 0;
+    playersList.innerHTML='';
+    for(let i=1;i<=p;i++){ const div=document.createElement('div'); div.className='player'; div.textContent='Player ' + i; playersList.appendChild(div); }
+  }
+  if(s.fen) {
+    renderFromFen(s.fen);
+    // highlight last move if provided
+    if(s.lastMove){
+      const squares = [s.lastMove.from, s.lastMove.to];
+      document.querySelectorAll('.square').forEach(d=>{ if(squares.includes(d.dataset.sq)) d.classList.add('lastMove'); });
+    }
+  }
   if(s.pgn) pgnEl.textContent = s.pgn;
-  if(s.players !== undefined) statusEl.textContent = 'Room: ' + (roomId || '-') + ' | Players: ' + s.players + ' | You: ' + (myColor || '-') + ' | Turn: ' + (s.turn==='w' ? 'White' : 'Black');
+  if(s.turn) currentTurn = s.turn;
 });
 
+// initial board
+createBoard();
+renderFromFen('startpos'); // will be ignored if not valid, but sets UI
 </script>
 </body>
 </html>

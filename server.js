@@ -5,7 +5,7 @@ const { Chess } = require('chess.js');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
@@ -31,7 +31,6 @@ io.on('connection', (socket) => {
 
   socket.on('join', ({room}, cb) => {
     if(!games[room]) {
-      // create new game if not exists
       const chess = new Chess();
       games[room] = { chess, players: new Set(), colors: {} };
     }
@@ -48,7 +47,7 @@ io.on('connection', (socket) => {
       else if(!assignedColors.includes('b')) g.colors[socket.id] = 'b';
       else g.colors[socket.id] = 'w';
     }
-    cb({ ok: true, fen: g.chess.fen(), pgn: g.chess.pgn(), color: g.colors[socket.id], turn: g.chess.turn() });
+    cb({ ok: true, fen: g.chess.fen(), pgn: g.chess.pgn(), color: g.colors[socket.id], turn: g.chess.turn(), players: g.players.size });
     // inform others
     io.to(room).emit('state', { fen: g.chess.fen(), pgn: g.chess.pgn(), turn: g.chess.turn(), players: g.players.size });
   });
@@ -57,6 +56,13 @@ io.on('connection', (socket) => {
     const g = games[room];
     if(!g) { cb && cb({ ok:false, err:'No such room' }); return; }
     const chess = g.chess;
+    const playerColor = g.colors[socket.id];
+    if(!playerColor) { cb && cb({ ok:false, err:'Not in room' }); return; }
+    // check turn: only allow if player's color matches chess.turn()
+    if(playerColor !== chess.turn()) {
+      cb && cb({ ok:false, err:'Not your turn' });
+      return;
+    }
     // try move
     const move = { from, to };
     if(promotion) move.promotion = promotion;

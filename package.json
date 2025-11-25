@@ -1,7 +1,7 @@
 {
-  "name": "multiplayer-chess",
+  "name": "multiplayer-chess-modern",
   "version": "1.0.0",
-  "description": "Minimal online multiplayer chess (Express + Socket.IO + chess.js). Serve with `node server.js`.",
+  "description": "Modernized Multiplayer Chess demo (Express + Socket.IO + chess.js)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
