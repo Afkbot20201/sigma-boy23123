@@ -63,18 +63,29 @@ const statusEl = document.getElementById('status');
 const pgnEl = document.getElementById('pgn');
 const roomInfoEl = document.getElementById('roomInfo');
 
+
 function createBoard(){
   boardEl.innerHTML = '';
-  for(let r=8;r>=1;r--){
-    for(let f=1;f<=8;f++){
-      const file = String.fromCharCode(96+f);
-      const sq = file + r;
-      const div = document.createElement('div');
-      div.className = 'square ' + (((r+f)%2===0)?'light':'dark');
-      div.dataset.sq = sq;
+
+  const orientation = myColor === 'b' ? 'black' : 'white';
+  const ranks = orientation === 'white' ? [8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8];
+  const files = orientation === 'white'
+        ? ['a','b','c','d','e','f','g','h']
+        : ['h','g','f','e','d','c','b','a'];
+
+  for (let r of ranks){
+    for (let f of files){
+      const sq = f + r;
+      const fileIndex = f.charCodeAt(0)-96;
+      const div=document.createElement('div');
+      div.className='square ' + (((r + fileIndex) % 2 === 0)?'light':'dark');
+      div.dataset.sq=sq;
       div.addEventListener('click', onSquareClick);
       boardEl.appendChild(div);
     }
+  }
+}
+
   }
 }
 
