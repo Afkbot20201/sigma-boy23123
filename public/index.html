@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Modern Multiplayer Chess</title>
+<title>Modern Multiplayer Chess — v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -11,120 +11,136 @@
     --glass: rgba(255,255,255,0.04);
   }
   *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
-  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071024 0%, #081426 50%);color:#e6eef8;display:flex;align-items:flex-start;justify-content:center;padding:28px;}
-  .app{max-width:1100px;width:100%;display:grid;grid-template-columns:520px 1fr;gap:20px;}
-  .left, .right{background:var(--panel);border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(2,6,23,0.6);}
+  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071024 0%, #081426 50%);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:28px;}
+  .container{width:1100px;max-width:100%;}
+  .card{background:var(--panel);border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(2,6,23,0.6);}
   header{display:flex;gap:12px;align-items:center;margin-bottom:12px;}
-  .logo{width:48px;height:48px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 12px rgba(124,58,237,0.2)}
-  .logo img{width:40px;height:40px;object-fit:cover;filter:brightness(1.1)}
-  h1{font-size:18px;margin:0}
+  .logo{width:56px;height:56px;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 8px 26px rgba(124,58,237,0.12)}
+  .logo img{width:48px;height:48px;object-fit:cover;filter:brightness(1.1)}
+  h1{font-size:20px;margin:0}
   p.lead{margin:0;color:var(--muted);font-size:13px}
-  /* Lobby UI */
-  .lobby{display:flex;flex-direction:column;gap:12px}
-  .card{background:var(--glass);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .menu{display:flex;gap:12px;margin-bottom:16px}
+  .menu button{padding:10px 14px;border-radius:10px;border:0;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
+  .menu button.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+  .layout{display:grid;grid-template-columns:520px 1fr;gap:20px}
+  /* left column */
+  .left-col{display:flex;flex-direction:column;gap:12px}
+  .input{padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
   .row{display:flex;gap:8px;align-items:center}
-  input, button, select{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;padding:8px 10px;border-radius:8px;font-size:14px}
-  button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:0;padding:10px 12px;color:white;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(7,11,33,0.6)}
-  .code{font-weight:800;letter-spacing:2px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);display:inline-block}
-  .players{display:flex;flex-direction:column;gap:6px}
-  .player{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
-  /* Board */
-  #boardWrap{display:flex;gap:18px;align-items:flex-start;padding:12px}
-  #board{display:grid;grid-template-columns:repeat(8,64px);grid-template-rows:repeat(8,64px);border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.02)}
-  .square{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none;transition:transform 150ms ease, background 120ms}
+  .primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:0;padding:10px 12px;color:white;font-weight:700;cursor:pointer;border-radius:10px}
+  /* board */
+  #board{display:grid;grid-template-columns:repeat(8,66px);grid-template-rows:repeat(8,66px);border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.02)}
+  .square{width:66px;height:66px;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none;transition:transform 150ms ease, background 120ms}
   .light{background:linear-gradient(180deg,#f2e7d3,#eadfc2)}
   .dark{background:linear-gradient(180deg,#b58863,#a67b54)}
   .selected{outline:3px solid rgba(124,58,237,0.95);transform:scale(1.05)}
   .lastMove{box-shadow:inset 0 0 0 3px rgba(6,182,212,0.25)}
-  /* right panel */
-  .rightTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-  .status{font-weight:700}
-  .pgn{background:rgba(0,0,0,0.25);padding:8px;border-radius:8px;height:160px;overflow:auto;color:var(--muted);font-size:13px}
-  .controls{display:flex;gap:8px}
-  /* animations */
-  @keyframes floaty {0%{transform:translateY(0)}50%{transform:translateY(-4px)}100%{transform:translateY(0)}}
-  .logo{animation:floaty 5s ease-in-out infinite}
-  .fadeIn{animation:fade 250ms ease forwards}
-  @keyframes fade {from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .small-muted{color:var(--muted);font-size:13px}
+  .players-list{display:flex;flex-direction:column;gap:8px}
+  .player-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
   /* responsive */
-  @media(max-width:980px){.app{grid-template-columns:1fr;}.left{order:2} .right{order:1} #board{transform:scale(0.85)}}
+  @media(max-width:980px){ .layout{grid-template-columns:1fr} #board{transform:scale(0.85)} }
 </style>
 </head>
 <body>
-  <div class="app">
-    <div class="left">
+  <div class="container">
+    <div class="card">
       <header>
-        <div class="logo"><img src="assets/logo.png" alt="logo"></div>
+        <div class="logo"><img src="assets/logo.png" alt="logo" /></div>
         <div>
           <h1>Modern Multiplayer Chess</h1>
-          <p class="lead">Play online with friends — animated, responsive, and mobile-friendly.</p>
+          <p class="lead">Clean, responsive, and ready to play with friends.</p>
         </div>
       </header>
 
-      <div class="lobby card">
-        <div class="row">
-          <input id="nameInput" placeholder="Your name (optional)" />
-        </div>
-
-        <div class="row">
-          <button id="createBtn" class="primary">Create Game</button>
-          <div style="flex:1"></div>
-        </div>
-
-        <div class="row">
-          <input id="joinInput" placeholder="Enter room code" />
-          <button id="joinBtn">Join</button>
-        </div>
-
-        <div id="roomPanel" class="card" style="display:none">
-          <div class="row" style="justify-content:space-between">
-            <div>Room: <span id="roomCode" class="code">-</span></div>
-            <div class="controls">
-              <button id="copyBtn">Copy</button>
-              <button id="leaveBtn">Leave</button>
-            </div>
-          </div>
-          <div class="players" id="playersList"></div>
-        </div>
-
-        <div class="row" style="margin-top:8px">
-          <button id="startBtn">Reset Game</button>
-          <div style="flex:1"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="right">
-      <div class="rightTop">
-        <div>
-          <div class="status" id="status">Not connected</div>
-          <div style="color:var(--muted);font-size:13px" id="turnInfo"></div>
-        </div>
-        <div style="text-align:right">
-          <div style="color:var(--muted);font-size:13px">Players: <span id="playerCount">0</span></div>
-        </div>
+      <div class="menu" role="tablist" aria-label="Main menu">
+        <button id="menuHome" class="active">Main Menu</button>
+        <button id="menuCreate">Create</button>
+        <button id="menuJoin">Join</button>
+        <button id="menuHow">How to</button>
       </div>
 
-      <div id="boardWrap">
-        <div id="board" aria-label="Chess board"></div>
-        <div style="width:260px;display:flex;flex-direction:column;gap:8px">
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div><strong>Moves</strong></div>
-              <div><button id="flipBtn">Flip</button></div>
+      <div class="layout">
+        <div class="left-col">
+          <!-- Main menu view -->
+          <div id="viewHome" class="view">
+            <div class="row" style="align-items:center;justify-content:space-between">
+              <div>
+                <div class="small-muted">Welcome</div>
+                <div style="font-weight:700;font-size:18px">Play chess with friends — create a room or join by code.</div>
+              </div>
+              <div>
+                <button id="quickCreate" class="primary">Quick Create</button>
+              </div>
             </div>
-            <div id="pgn" class="pgn"></div>
+            <div style="margin-top:12px" class="card">
+              <div class="small-muted">Active session</div>
+              <div id="sessionInfo">Not in a room</div>
+            </div>
           </div>
 
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div><strong>Controls</strong></div>
-            </div>
+          <!-- Create view -->
+          <div id="viewCreate" class="view" style="display:none">
+            <div class="small-muted">Create a new game</div>
+            <input id="createName" class="input" placeholder="Your display name (example: Alice)" />
             <div style="display:flex;gap:8px;margin-top:8px">
-              <button id="soundToggle">Sound: On</button>
-              <button id="themeBtn">Theme</button>
+              <button id="createBtn" class="primary">Create Game</button>
+              <button id="createBack">Back</button>
             </div>
           </div>
+
+          <!-- Join view -->
+          <div id="viewJoin" class="view" style="display:none">
+            <div class="small-muted">Join an existing game</div>
+            <input id="joinName" class="input" placeholder="Your display name (example: Bob)" />
+            <input id="joinCode" class="input" placeholder="Room code (e.g., A7K4F3)" style="margin-top:8px" />
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="joinBtn" class="primary">Join</button>
+              <button id="joinBack">Back</button>
+            </div>
+          </div>
+
+          <div id="viewHow" class="view" style="display:none">
+            <div class="small-muted">How to play</div>
+            <div style="margin-top:8px" class="small-muted">Create, share room code, and play in real time. Use Quick Create to get a room instantly.</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div>
+              <div id="statusLine" style="font-weight:700">Not connected</div>
+              <div class="small-muted" id="turnLine">Turn: -</div>
+            </div>
+            <div style="text-align:right">
+              <div class="small-muted">Players: <span id="playerCount">0</span></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:16px;align-items:flex-start">
+            <div id="board" role="grid" aria-label="Chess board"></div>
+
+            <div style="width:260px;display:flex;flex-direction:column;gap:8px">
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div><strong>Room</strong></div>
+                  <div><button id="copyUrl">Copy</button></div>
+                </div>
+                <div style="margin-top:8px">
+                  <div class="small-muted">Code</div>
+                  <div id="roomCode" style="font-weight:800;letter-spacing:2px">-</div>
+                  <div class="small-muted" style="margin-top:8px">Players</div>
+                  <div id="players" class="players-list"></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div><strong>Moves</strong></div>
+                <div id="pgn" style="height:160px;overflow:auto;color:var(--muted);margin-top:8px"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -133,48 +149,92 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-// Modernized frontend logic with safer move handling, flip, sounds, and UI polish
+// Improved frontend logic
 const socket = io();
 let roomId = null;
 let myColor = null;
 let currentTurn = null;
 let currentFen = null;
 let selected = null;
-let autoFlip = true; // auto flip boards for black
 let orientation = 'white';
+let myName = null;
 
 const boardEl = document.getElementById('board');
-const statusEl = document.getElementById('status');
-const turnInfoEl = document.getElementById('turnInfo');
+const statusLine = document.getElementById('statusLine');
+const turnLine = document.getElementById('turnLine');
 const pgnEl = document.getElementById('pgn');
-const playersList = document.getElementById('playersList');
+const playersEl = document.getElementById('players');
 const playerCountEl = document.getElementById('playerCount');
+const roomCodeEl = document.getElementById('roomCode');
+const sessionInfo = document.getElementById('sessionInfo');
 
-// simple move sound via WebAudio
-let audioOn = true;
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playClick(freq=880, duration=0.06){
-  if(!audioOn) return;
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.connect(g); g.connect(audioCtx.destination);
-  o.frequency.value = freq;
-  o.type = 'sine';
-  g.gain.value = 0.02;
-  o.start();
-  setTimeout(()=>{ o.stop(); }, duration*1000);
-}
-
-// unicode pieces
+// Unicode pieces
 const UNICODE = {
   'p':'\u265F','r':'\u265C','n':'\u265E','b':'\u265D','q':'\u265B','k':'\u265A',
   'P':'\u2659','R':'\u2656','N':'\u2658','B':'\u2657','Q':'\u2655','K':'\u2654'
 };
 
+function setView(viewId){
+  document.querySelectorAll('.view').forEach(v=>v.style.display='none');
+  document.getElementById(viewId).style.display = 'block';
+  document.querySelectorAll('.menu button').forEach(b=>b.classList.remove('active'));
+  if(viewId==='viewHome') document.getElementById('menuHome').classList.add('active');
+  if(viewId==='viewCreate') document.getElementById('menuCreate').classList.add('active');
+  if(viewId==='viewJoin') document.getElementById('menuJoin').classList.add('active');
+  if(viewId==='viewHow') document.getElementById('menuHow').classList.add('active');
+}
+
+document.getElementById('menuHome').addEventListener('click', ()=>setView('viewHome'));
+document.getElementById('menuCreate').addEventListener('click', ()=>setView('viewCreate'));
+document.getElementById('menuJoin').addEventListener('click', ()=>setView('viewJoin'));
+document.getElementById('menuHow').addEventListener('click', ()=>setView('viewHow'));
+
+document.getElementById('quickCreate').addEventListener('click', ()=>{
+  document.getElementById('createName').value = 'Player';
+  document.getElementById('createBtn').click();
+});
+
+document.getElementById('createBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('createName').value.trim() || 'Player';
+  myName = name;
+  socket.emit('create', { name }, (res)=>{
+    roomId = res.room;
+    joinRoom(roomId, name);
+  });
+});
+
+document.getElementById('joinBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('joinName').value.trim() || 'Player';
+  const code = document.getElementById('joinCode').value.trim();
+  if(!code) return alert('Enter room code');
+  myName = name;
+  joinRoom(code, name);
+});
+
+document.getElementById('createBack').addEventListener('click', ()=>setView('viewHome'));
+document.getElementById('joinBack').addEventListener('click', ()=>setView('viewHome'));
+
+function joinRoom(code, name){
+  socket.emit('join', { room: code, name }, (r)=>{
+    if(!r.ok) return alert(r.err || 'Failed to join');
+    roomId = code;
+    myColor = r.color;
+    currentTurn = r.turn;
+    roomCodeEl.textContent = roomId;
+    updatePlayers(r.players);
+    setView('viewHome');
+    orientation = (myColor === 'b') ? 'black' : 'white';
+    createBoard();
+    renderFromFen(r.fen);
+    updateStatus();
+    sessionInfo.textContent = 'In room ' + roomId + ' as ' + name + ' (' + myColor + ')';
+  });
+}
+
 function createBoard(){
   boardEl.innerHTML = '';
-  const ranks = orientation === 'white' ? [8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8];
-  const files = orientation === 'white' ? ['a','b','c','d','e','f','g','h'] : ['h','g','f','e','d','c','b','a'];
+  const ranks = (orientation === 'white') ? [8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8];
+  const files = (orientation === 'white') ? ['a','b','c','d','e','f','g','h'] : ['h','g','f','e','d','c','b','a'];
   for (let r of ranks){
     for (let f of files){
       const sq = f + r;
@@ -190,6 +250,7 @@ function createBoard(){
 
 function renderFromFen(fen){
   currentFen = fen;
+  if(!fen || fen === 'startpos') return;
   const parts = fen.split(' ');
   const rows = parts[0].split('/');
   const sqs = {};
@@ -212,30 +273,34 @@ function renderFromFen(fen){
     div.textContent = sqs[sq] ? UNICODE[sqs[sq]] : '';
     div.classList.remove('selected','lastMove');
   });
-  updateStatus(parts[1]);
+  updateStatus(currentTurn);
 }
 
-function updateStatus(turn){
-  currentTurn = turn;
-  document.getElementById('playerCount').textContent = document.getElementById('playersList').children.length || 0;
-  statusEl.textContent = 'Room: ' + (roomId || '-') + ' | You: ' + (myColor || '-');
-  turnInfoEl.textContent = 'Turn: ' + (turn === 'w' ? 'White' : 'Black');
+function updateStatus(){
+  statusLine.textContent = roomId ? ('Room: ' + roomId + ' | You: ' + (myName||'-')) : 'Not connected';
+  turnLine.textContent = 'Turn: ' + (currentTurn === 'w' ? 'White' : (currentTurn === 'b' ? 'Black' : '-'));
+  playerCountEl.textContent = playersEl.children.length;
 }
 
-function isMyTurn(){
-  if(!myColor || !currentTurn) return false;
-  return myColor[0] === currentTurn;
+function updatePlayers(arr){
+  playersEl.innerHTML = '';
+  for(const p of arr){
+    const d = document.createElement('div');
+    d.className='player-row';
+    d.innerHTML = '<div>' + (p.name||'Player') + '</div><div style="opacity:0.9">' + (p.color||'-') + '</div>';
+    playersEl.appendChild(d);
+  }
+  updateStatus();
 }
+
+function isMyTurn(){ return myColor && currentTurn && myColor[0] === currentTurn; }
 
 function onSquareClick(e){
   const sq = e.currentTarget.dataset.sq;
-
-  if(!roomId){ alert('Join a room first'); return; }
-
-  // If a move selection exists and it's our turn, allow sending move. Else allow selecting our own piece when our turn.
+  if(!roomId) return flash('Join a room first');
+  // selection flow
   if(!selected){
-    // allow selecting only on your turn
-    if(!isMyTurn()){ return; }
+    if(!isMyTurn()) return; // only select on your turn
     const piece = e.currentTarget.textContent;
     if(!piece) return;
     const isWhitePiece = piece.charCodeAt(0) >= 0x2654 && piece.charCodeAt(0) <= 0x2659;
@@ -243,22 +308,16 @@ function onSquareClick(e){
     if((myColor === 'w' && !isWhitePiece) || (myColor === 'b' && !isBlackPiece)) return;
     selected = sq;
     e.currentTarget.classList.add('selected');
-    playClick(1200, 0.04);
   } else {
-    // attempt move
     if(selected === sq){
       selected = null;
       document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
       return;
     }
-    // send move to server
+    // send move
     socket.emit('move', { room: roomId, from: selected, to: sq }, (res)=>{
       if(!res.ok){
-        // show error but do not freeze
-        console.warn('move failed', res.err);
-        flashMessage(res.err || 'Illegal move');
-      } else {
-        playClick(700, 0.06);
+        flash(res.err || 'Illegal move');
       }
     });
     selected = null;
@@ -266,93 +325,33 @@ function onSquareClick(e){
   }
 }
 
-function flashMessage(text){
+function flash(text){
   const el = document.createElement('div');
   el.textContent = text;
-  el.style.position='fixed'; el.style.left='50%'; el.style.top='24px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(0,0,0,0.6)'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.zIndex=9999; el.style.color='white';
+  el.style.position='fixed'; el.style.left='50%'; el.style.top='20px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(0,0,0,0.7)'; el.style.color='white'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.zIndex=9999;
   document.body.appendChild(el);
   setTimeout(()=>{ el.style.transition='opacity 260ms'; el.style.opacity=0; setTimeout(()=>el.remove(),260); }, 2000);
 }
 
-// UI actions
-document.getElementById('createBtn').addEventListener('click', ()=>{
-  const name = document.getElementById('nameInput').value.trim() || 'Guest';
-  socket.emit('create', (res)=>{
-    roomId = res.room;
-    document.getElementById('roomPanel').style.display='block';
-    document.getElementById('roomCode').textContent = roomId;
-    document.getElementById('playersList').innerHTML = '';
-    socket.emit('join', { room: roomId }, (r)=>{ if(r.ok){ myColor = r.color; renderFromFen(r.fen); pgnEl.textContent = r.pgn || ''; updateStatus(r.turn); if(autoFlip) orientation = (myColor==='b')?'black':'white'; createBoard(); renderFromFen(r.fen); } });
-  });
-});
-
-document.getElementById('joinBtn').addEventListener('click', ()=>{
-  const v = document.getElementById('joinInput').value.trim();
-  if(!v) return alert('Enter room id');
-  roomId = v;
-  socket.emit('join', { room: roomId }, (r)=>{
-    if(!r.ok) return alert(r.err || 'Cannot join');
-    myColor = r.color;
-    document.getElementById('roomPanel').style.display='block';
-    document.getElementById('roomCode').textContent = roomId;
-    renderFromFen(r.fen);
-    pgnEl.textContent = r.pgn || '';
-    updateStatus(r.turn);
-    if(autoFlip) orientation = (myColor==='b')?'black':'white';
-    createBoard();
-    renderFromFen(r.fen);
-  });
-});
-
-document.getElementById('copyBtn').addEventListener('click', ()=>{
-  navigator.clipboard.writeText(window.location.origin + '/' + roomId).then(()=>{ flashMessage('Copied URL'); });
-});
-document.getElementById('leaveBtn').addEventListener('click', ()=>{
-  if(roomId) socket.emit('leave', { room: roomId });
-  roomId = null; myColor = null;
-  document.getElementById('roomPanel').style.display='none';
-  document.getElementById('playersList').innerHTML='';
-  updateStatus('-');
-  createBoard();
-});
-document.getElementById('startBtn').addEventListener('click', ()=>{
-  if(!roomId) return flashMessage('Join a room first');
-  socket.emit('reset', { room: roomId }, (r)=>{ if(!r.ok) flashMessage('Reset failed'); });
-});
-document.getElementById('flipBtn').addEventListener('click', ()=>{
-  orientation = (orientation==='white')?'black':'white';
-  createBoard();
-  renderFromFen(currentFen);
-});
-document.getElementById('soundToggle').addEventListener('click', ()=>{
-  audioOn = !audioOn;
-  document.getElementById('soundToggle').textContent = 'Sound: ' + (audioOn? 'On':'Off');
-});
-
 // socket handlers
 socket.on('state', (s)=>{
-  if(s.players !== undefined){
-    playerCountEl.textContent = s.players;
-    // Refresh player list simply with placeholders (server doesn't send names in this simple demo)
-    const p = s.players || 0;
-    playersList.innerHTML='';
-    for(let i=1;i<=p;i++){ const div=document.createElement('div'); div.className='player'; div.textContent='Player ' + i; playersList.appendChild(div); }
-  }
-  if(s.fen) {
-    renderFromFen(s.fen);
-    // highlight last move if provided
-    if(s.lastMove){
-      const squares = [s.lastMove.from, s.lastMove.to];
-      document.querySelectorAll('.square').forEach(d=>{ if(squares.includes(d.dataset.sq)) d.classList.add('lastMove'); });
-    }
-  }
+  if(s.players) updatePlayers(s.players);
+  if(s.fen) renderFromFen(s.fen);
   if(s.pgn) pgnEl.textContent = s.pgn;
   if(s.turn) currentTurn = s.turn;
+  updateStatus();
+  // highlight last move
+  if(s.lastMove){
+    setTimeout(()=>{
+      document.querySelectorAll('.square').forEach(d=>{ if([s.lastMove.from, s.lastMove.to].includes(d.dataset.sq)) d.classList.add('lastMove'); });
+    }, 30);
+  }
 });
 
-// initial board
+// initial UI
+setView('viewHome');
 createBoard();
-renderFromFen('startpos'); // will be ignored if not valid, but sets UI
+
 </script>
 </body>
 </html>

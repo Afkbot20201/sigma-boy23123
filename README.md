@@ -1,14 +1,11 @@
-# Modernized Multiplayer Chess
+Modernized Multiplayer Chess — v2
+- Fixed selection + move freeze issues
+- Adds Main Menu: Main / Create / Join / How To
+- Player names are sent on join/create and displayed in lobby
+- Server enforces turns and responds with detailed players list
+- Frontend only allows selecting your pieces on your turn; illegal moves show a toast and don't freeze
 
-This is an improved version of the minimal multiplayer chess demo:
-- Fixed move-turn validation on the server (server enforces turns and rejects out-of-turn moves).
-- Frontend prevents out-of-turn selection and handles illegal moves gracefully.
-- Modern UI with animations, lobby panel, room creation/join, flip button, sounds via WebAudio.
-- No authentication — intended as a demo. Improve for production use.
-
-## Run locally
-```bash
-npm install
-npm start
-```
-Open `http://localhost:3000` in two browsers/windows. Create a game, share room code (or use a tunnel/cloudflare).
+Run:
+> npm install
+> npm start
+Open http://localhost:3000 and use Create/Join from the Main Menu.
