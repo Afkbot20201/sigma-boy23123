@@ -1,121 +1,294 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const { Chess } = require('chess.js');
+
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const { Chess } = require("chess.js");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
-app.use(express.static('public'));
+const io = new Server(server, { cors: { origin: "*" } });
 
-const games = {};
-const elo = {}; // name -> rating
-const rankedQueue = [];
+app.use(express.static("public"));
 
-function makeId(len=6){
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let s=''; for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+const games = {}; // roomId -> { chess, players: Map(socketId->name), colors: Map(socketId->"w"/"b"), ranked?:bool, ai?:bool }
+const elo = {};   // name -> rating
+const rankedQueue = []; // { socket, name }
+
+function makeId(len = 6) {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return s;
 }
 
-function getElo(name){
-  if(!elo[name]) elo[name] = 1000;
+function getElo(name) {
+  if (!elo[name]) elo[name] = 1000;
   return elo[name];
 }
 
-function updateElo(winner, loser){
-  elo[winner] += 25;
-  elo[loser] -= 15;
+// Very simple Elo-ish update
+function updateElo(winnerName, loserName) {
+  if (!winnerName || !loserName) return;
+  getElo(winnerName);
+  getElo(loserName);
+  elo[winnerName] += 20;
+  elo[loserName] -= 10;
 }
 
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
+  console.log("connected", socket.id);
 
-  socket.on('rankedQueue', ({name})=>{
+  // Queue for ranked match
+  socket.on("rankedQueue", ({ name }) => {
+    if (!name) name = "Player";
     socket.playerName = name;
-    rankedQueue.push(socket);
-    if(rankedQueue.length >= 2){
-      const p1 = rankedQueue.shift();
-      const p2 = rankedQueue.shift();
-      let room = makeId();
-      games[room] = { chess:new Chess(), players:new Map(), colors:new Map(), ranked:true };
-      p1.join(room); p2.join(room);
-      games[room].players.set(p1.id, p1.playerName);
-      games[room].players.set(p2.id, p2.playerName);
-      games[room].colors.set(p1.id,'w');
-      games[room].colors.set(p2.id,'b');
-
-      p1.emit('rankedFound',{room});
-      p2.emit('rankedFound',{room});
+    rankedQueue.push({ socket, name });
+    if (rankedQueue.length >= 2) {
+      const a = rankedQueue.shift();
+      const b = rankedQueue.shift();
+      const room = makeId();
+      const chess = new Chess();
+      games[room] = {
+        chess,
+        players: new Map(),
+        colors: new Map(),
+        ranked: true,
+        ai: false
+      };
+      games[room].players.set(a.socket.id, a.name);
+      games[room].players.set(b.socket.id, b.name);
+      games[room].colors.set(a.socket.id, "w");
+      games[room].colors.set(b.socket.id, "b");
+      a.socket.join(room);
+      b.socket.join(room);
+      const playersArr = [
+        { name: a.name, color: "w", elo: getElo(a.name) },
+        { name: b.name, color: "b", elo: getElo(b.name) }
+      ];
+      const payload = {
+        room,
+        fen: chess.fen(),
+        turn: chess.turn(),
+        players: playersArr
+      };
+      a.socket.emit("rankedFound", { ...payload, asColor: "w" });
+      b.socket.emit("rankedFound", { ...payload, asColor: "b" });
     }
   });
 
-  socket.on('create', ({name}, cb) => {
+  // Create casual room (friend)
+  socket.on("create", ({ name }, cb) => {
+    if (!name) name = "Player";
     let room = makeId();
-    games[room] = { chess:new Chess(), players:new Map(), colors:new Map() };
-    cb({room});
+    while (games[room]) room = makeId();
+    const chess = new Chess();
+    games[room] = {
+      chess,
+      players: new Map(),
+      colors: new Map(),
+      ranked: false,
+      ai: false
+    };
+    cb && cb({ room });
   });
 
-  socket.on('join', ({room, name}, cb) => {
-    if(!games[room]) games[room]={ chess:new Chess(), players:new Map(), colors:new Map() };
+  // Join room (friend or ranked)
+  socket.on("join", ({ room, name }, cb) => {
+    if (!name) name = "Player";
+    if (!games[room]) {
+      // if room not exist, create casual
+      const chess = new Chess();
+      games[room] = {
+        chess,
+        players: new Map(),
+        colors: new Map(),
+        ranked: false,
+        ai: false
+      };
+    }
     const g = games[room];
-
-    if(g.players.size>=2 && !g.players.has(socket.id)){
-      cb({ok:false,err:'Room full'}); return;
+    if (g.players.size >= 2 && !g.players.has(socket.id) && !g.ai) {
+      cb && cb({ ok: false, err: "Room full" });
+      return;
     }
     socket.join(room);
-    g.players.set(socket.id,name);
-    if(!Array.from(g.colors.values()).includes('w')) g.colors.set(socket.id,'w');
-    else g.colors.set(socket.id,'b');
-
-    const players=[];
-    for(const [id,nm] of g.players.entries())
-      players.push({name:nm,color:g.colors.get(id),elo:getElo(nm)});
-
-    cb({ok:true,fen:g.chess.fen(),color:g.colors.get(socket.id),turn:g.chess.turn(),players});
-    io.to(room).emit('state',{fen:g.chess.fen(),turn:g.chess.turn(),players});
+    g.players.set(socket.id, name);
+    if (!g.colors.has(socket.id)) {
+      const used = Array.from(g.colors.values());
+      if (!used.includes("w")) g.colors.set(socket.id, "w");
+      else g.colors.set(socket.id, "b");
+    }
+    const playersArr = [];
+    for (const [id, nm] of g.players.entries()) {
+      playersArr.push({ name: nm, color: g.colors.get(id), elo: getElo(nm) });
+    }
+    cb &&
+      cb({
+        ok: true,
+        room,
+        fen: g.chess.fen(),
+        color: g.colors.get(socket.id),
+        turn: g.chess.turn(),
+        players: playersArr,
+        ranked: !!g.ranked,
+        ai: !!g.ai
+      });
+    io.to(room).emit("state", {
+      fen: g.chess.fen(),
+      turn: g.chess.turn(),
+      players: playersArr
+    });
   });
 
-  socket.on('aiGame', ({name}, cb)=>{
+  // Start AI game (player is always White)
+  socket.on("aiGame", ({ name }, cb) => {
+    if (!name) name = "Player";
     let room = makeId();
     const chess = new Chess();
-    games[room] = { chess, players:new Map(), colors:new Map(), ai:true };
-    games[room].players.set(socket.id,name);
-    games[room].colors.set(socket.id,'w');
+    games[room] = {
+      chess,
+      players: new Map(),
+      colors: new Map(),
+      ranked: false,
+      ai: true
+    };
+    games[room].players.set(socket.id, name);
+    games[room].colors.set(socket.id, "w");
     socket.join(room);
-    cb({room});
-    io.to(room).emit('state',{fen:chess.fen(),turn:chess.turn()});
+    const playersArr = [{ name, color: "w", elo: getElo(name) }, { name: "AI", color: "b", elo: 0 }];
+    cb &&
+      cb({
+        ok: true,
+        room,
+        fen: chess.fen(),
+        color: "w",
+        turn: chess.turn(),
+        players: playersArr,
+        ranked: false,
+        ai: true
+      });
+    io.to(room).emit("state", {
+      fen: chess.fen(),
+      turn: chess.turn(),
+      players: playersArr
+    });
   });
 
-  socket.on('move', ({room,from,to}, cb) => {
+  // Move
+  socket.on("move", ({ room, from, to }, cb) => {
     const g = games[room];
-    if(!g) return;
-
-    const pc = g.colors.get(socket.id);
-    if(pc !== g.chess.turn()){
-      cb && cb({ok:false}); return;
+    if (!g) {
+      cb && cb({ ok: false, err: "No such room" });
+      return;
+    }
+    const chess = g.chess;
+    const playerColor = g.colors.get(socket.id);
+    if (!playerColor) {
+      cb && cb({ ok: false, err: "Not in room" });
+      return;
+    }
+    if (playerColor !== chess.turn()) {
+      cb && cb({ ok: false, err: "Not your turn" });
+      return;
+    }
+    const result = chess.move({ from, to });
+    if (!result) {
+      cb && cb({ ok: false, err: "Illegal move" });
+      return;
     }
 
-    const res = g.chess.move({from,to});
-    if(!res){ cb&&cb({ok:false}); return; }
+    const playersArr = [];
+    for (const [id, nm] of g.players.entries()) {
+      playersArr.push({ name: nm, color: g.colors.get(id), elo: getElo(nm) });
+    }
 
-    io.to(room).emit('state',{fen:g.chess.fen(),turn:g.chess.turn(),lastMove:res});
+    io.to(room).emit("state", {
+      fen: chess.fen(),
+      turn: chess.turn(),
+      lastMove: result,
+      players: playersArr
+    });
 
-    if(g.ai){
-      setTimeout(()=>{
-        const moves = g.chess.moves();
-        if(moves.length){
-          g.chess.move(moves[Math.floor(Math.random()*moves.length)]);
-          io.to(room).emit('state',{fen:g.chess.fen(),turn:g.chess.turn()});
+    // If checkmate and ranked, update simple Elo
+    if (chess.isGameOver() && g.ranked) {
+      const winnerColor = result.color;
+      let winnerName = null;
+      let loserName = null;
+      for (const [id, nm] of g.players.entries()) {
+        if (g.colors.get(id) === winnerColor) winnerName = nm;
+        else loserName = nm;
+      }
+      updateElo(winnerName, loserName);
+    }
+
+    cb && cb({ ok: true });
+
+    // AI response if needed
+    if (g.ai && !chess.isGameOver()) {
+      if (chess.turn() === "b") {
+        // very dumb AI: random move
+        const moves = chess.moves({ verbose: true });
+        if (moves.length) {
+          const m = moves[Math.floor(Math.random() * moves.length)];
+          const aiRes = chess.move({ from: m.from, to: m.to, promotion: m.promotion });
+          io.to(room).emit("state", {
+            fen: chess.fen(),
+            turn: chess.turn(),
+            lastMove: aiRes,
+            players: playersArr
+          });
         }
-      },500);
+      }
     }
-
-    cb&&cb({ok:true});
   });
 
-  socket.on('chat', ({room,name,msg})=>{
-    io.to(room).emit('chat',{name,msg});
+  // Reset
+  socket.on("reset", ({ room }) => {
+    const g = games[room];
+    if (!g) return;
+    g.chess.reset();
+    const playersArr = [];
+    for (const [id, nm] of g.players.entries()) {
+      playersArr.push({ name: nm, color: g.colors.get(id), elo: getElo(nm) });
+    }
+    io.to(room).emit("state", {
+      fen: g.chess.fen(),
+      turn: g.chess.turn(),
+      players: playersArr
+    });
+  });
+
+  // Chat
+  socket.on("chat", ({ room, name, msg }) => {
+    if (!room || !msg) return;
+    io.to(room).emit("chat", {
+      name: name || "Player",
+      msg: String(msg).slice(0, 200),
+      ts: Date.now()
+    });
+  });
+
+  socket.on("disconnect", () => {
+    // Remove from ranked queue
+    for (let i = rankedQueue.length - 1; i >= 0; i--) {
+      if (rankedQueue[i].socket.id === socket.id) {
+        rankedQueue.splice(i, 1);
+      }
+    }
+    // Cleanup games
+    for (const room of Object.keys(games)) {
+      const g = games[room];
+      if (g.players.has(socket.id)) {
+        g.players.delete(socket.id);
+        g.colors.delete(socket.id);
+        if (g.players.size === 0) {
+          delete games[room];
+        }
+      }
+    }
+    console.log("disconnected", socket.id);
   });
 });
 
-server.listen(process.env.PORT||3000);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log("Server listening on", PORT));

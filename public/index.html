@@ -1,143 +1,463 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Ultimate Chess v5</title>
-<style>
-body{background:#020617;color:white;font-family:Orbitron;margin:0}
-#menu,#game{display:flex;justify-content:center;align-items:center;min-height:100vh}
-.panel{background:#111827;padding:30px;border-radius:14px;text-align:center}
-button,input{margin-top:10px;padding:10px;border-radius:8px;border:none}
-#board{display:grid;grid-template-columns:repeat(8,60px);grid-template-rows:repeat(8,60px)}
-.square{display:flex;align-items:center;justify-content:center;font-size:32px}
-.light{background:#eadbbf}.dark{background:#b0825a}
-.kill{animation:boom .3s}
-@keyframes boom{0%{transform:scale(.5)}100%{transform:scale(1.2)}}
-#side{margin-left:20px}
-</style>
+  <meta charset="utf-8" />
+  <title>Ultimate Multiplayer Chess</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#020617; --panel:#0b1220; --accent:#6366f1; --accent-soft:#4f46e5;
+      --muted:#9ca3af; --danger:#f97373; --success:#22c55e;
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+    body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#020617,#030712,#020617);color:#f9fafb;display:flex;align-items:center;justify-content:center;padding:16px;}
+    .app{width:1120px;max-width:100%;display:grid;grid-template-columns:380px 1fr;gap:18px;}
+    .card{background:rgba(15,23,42,0.96);border-radius:16px;padding:18px;box-shadow:0 20px 60px rgba(15,23,42,0.8);}
+    h1{margin:0 0 4px;font-size:20px;}
+    .sub{color:var(--muted);font-size:13px;margin-bottom:12px;}
+    input,button{border-radius:10px;border:1px solid rgba(148,163,184,0.3);padding:9px 10px;font-size:14px;background:rgba(15,23,42,0.9);color:inherit;}
+    button{cursor:pointer;font-weight:600;background:linear-gradient(90deg,var(--accent),var(--accent-soft));border:none;color:white;}
+    button.secondary{background:transparent;border:1px solid rgba(148,163,184,0.5);color:var(--muted);}
+    button.full{width:100%;}
+    .stack{display:flex;flex-direction:column;gap:10px;}
+    .row{display:flex;gap:8px;}
+    .tag{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:rgba(148,163,184,0.16);font-size:11px;color:var(--muted);}
+    .tag-dot{width:6px;height:6px;border-radius:999px;margin-right:5px;background:#22c55e;}
+    #boardWrap{display:flex;gap:14px;}
+    #board{display:grid;grid-template-columns:repeat(8,68px);grid-template-rows:repeat(8,68px);border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px rgba(15,23,42,0.9),0 18px 40px rgba(15,23,42,0.9);background:#020617;transition:transform 0.25s ease;}
+    .square{display:flex;align-items:center;justify-content:center;font-size:34px;user-select:none;cursor:pointer;position:relative;transition:background 0.12s, transform 0.12s;}
+    .light{background:#f2e6d4;}
+    .dark{background:#b58863;}
+    .square.selected{box-shadow:inset 0 0 0 3px rgba(59,130,246,0.9);}
+    .kill::after{
+      content:"";
+      position:absolute;inset:12px;border-radius:12px;
+      border:2px solid rgba(239,68,68,0.9);
+      box-shadow:0 0 18px rgba(248,113,113,0.9);
+      animation:kill 260ms ease-out;
+    }
+    @keyframes kill{from{transform:scale(1.1);opacity:1;}to{transform:scale(1);opacity:0;}}
+    #board.rotated{transform:rotate(180deg);}
+    #board.rotated .piece{transform:rotate(180deg);}
+    .piece{transition:transform 0.16s;}
+    .right-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+    .pill{font-size:12px;color:var(--muted);}
+    .pill strong{color:#e5e7eb;}
+    .players{font-size:13px;color:var(--muted);}
+    .players div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(31,41,55,0.7);}
+    .players div:last-child{border-bottom:none;}
+    .chat{margin-top:10px;display:flex;flex-direction:column;height:180px;border-radius:10px;background:rgba(15,23,42,0.85);border:1px solid rgba(30,64,175,0.8);overflow:hidden;}
+    .chat-log{flex:1;overflow:auto;padding:8px;font-size:13px;}
+    .chat-input{display:flex;border-top:1px solid rgba(30,64,175,0.6);}
+    .chat-input input{flex:1;border:none;border-radius:0;background:transparent;padding:8px 10px;font-size:13px;}
+    .chat-input button{border-radius:0;border-left:1px solid rgba(30,64,175,0.6);padding:0 14px;font-size:13px;}
+    .countdown-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.9);z-index:30;}
+    .countdown-overlay.active{display:flex;}
+    .countdown-number{font-size:96px;font-weight:800;color:#e5e7eb;animation:pulse 0.8s ease-in-out infinite;}
+    @keyframes pulse{0%{transform:scale(0.7);opacity:0.5;}50%{transform:scale(1);opacity:1;}100%{transform:scale(0.7);opacity:0.5;}}
+    @media(max-width:960px){
+      .app{grid-template-columns:1fr;}
+      #boardWrap{flex-direction:column;align-items:center;}
+      #board{transform:scale(0.9);}
+    }
+  </style>
 </head>
 <body>
+<div class="app">
 
-<div id="menu">
-  <div class="panel">
-    <h1>ULTIMATE CHESS</h1>
-    <input id="name" placeholder="Name">
-    <button id="ranked">Ranked Match</button>
-    <button id="ai">Play vs AI</button>
-    <input id="room" placeholder="Room">
-    <button id="join">Join</button>
+  <!-- LEFT: MODE + LOBBY -->
+  <div class="card">
+    <h1>Ultimate Multiplayer Chess</h1>
+    <div class="sub">Online with friends, ranked queue, or vs AI.</div>
+
+    <div class="stack">
+      <div class="row">
+        <input id="nameInput" placeholder="Your name" style="flex:1" />
+      </div>
+
+      <div class="stack" style="margin-top:6px;">
+        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Modes</div>
+        <button id="playFriendBtn" class="full">Play with Friend</button>
+        <button id="playRankedBtn" class="full">Ranked Matchmaking</button>
+        <button id="playAIBtn" class="full">Play vs AI</button>
+      </div>
+
+      <div id="friendPanel" style="margin-top:10px;display:none;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Friend room</div>
+        <div class="row">
+          <button id="createRoomBtn" style="flex:1;">Create Room</button>
+        </div>
+        <div class="row" style="margin-top:6px;">
+          <input id="joinCodeInput" placeholder="Enter room code" style="flex:1;" />
+          <button id="joinRoomBtn">Join</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);" id="statusText">
+        Not connected.
+      </div>
+    </div>
   </div>
+
+  <!-- RIGHT: GAME + CHAT -->
+  <div class="card">
+    <div class="right-top">
+      <div class="pill" id="modeLabel">Mode: -</div>
+      <div class="pill" id="turnLabel">Turn: -</div>
+    </div>
+    <div id="boardWrap">
+      <div id="board" aria-label="Chess board"></div>
+      <div style="width:260px;display:flex;flex-direction:column;gap:8px;">
+        <div>
+          <div class="pill"><span class="tag"><span class="tag-dot"></span>Room</span> <span id="roomLabel">-</span></div>
+          <div class="players" id="playersBox"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:4px;">
+          <button id="resetBtn" class="secondary" style="flex:1;">Reset</button>
+          <button id="flipBtn" class="secondary" style="flex:1;">Flip</button>
+          <button id="leaveBtn" class="secondary" style="flex:1;">Leave</button>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Moves</div>
+          <div id="pgnBox" style="height:90px;overflow:auto;font-size:12px;color:var(--muted);background:rgba(15,23,42,0.8);border-radius:10px;padding:6px;border:1px solid rgba(31,41,55,0.9);"></div>
+        </div>
+        <div class="chat">
+          <div class="chat-log" id="chatLog"></div>
+          <div class="chat-input">
+            <input id="chatInput" placeholder="Type a message..." />
+            <button id="chatSendBtn">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<div id="game" style="display:none">
-  <div id="board"></div>
-  <div id="side">
-    <div id="players"></div>
-    <div id="turn"></div>
-    <div id="chat"></div>
-    <input id="msg" placeholder="Say something">
-    <button id="send">Send</button>
-    <button onclick="location.reload()">Leave</button>
-  </div>
+<div class="countdown-overlay" id="countdownOverlay">
+  <div class="countdown-number" id="countdownNumber">3</div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-const board=document.getElementById('board');
-const menu=document.getElementById('menu');
-const game=document.getElementById('game');
-const chatEl=document.getElementById('chat');
 
-let roomId=null,myColor=null,turn=null,selected=null,nameEl=document.getElementById('name').value;
+const boardEl = document.getElementById("board");
+const nameInput = document.getElementById("nameInput");
+const playFriendBtn = document.getElementById("playFriendBtn");
+const playRankedBtn = document.getElementById("playRankedBtn");
+const playAIBtn = document.getElementById("playAIBtn");
+const friendPanel = document.getElementById("friendPanel");
+const createRoomBtn = document.getElementById("createRoomBtn");
+const joinRoomBtn = document.getElementById("joinRoomBtn");
+const joinCodeInput = document.getElementById("joinCodeInput");
+const statusText = document.getElementById("statusText");
+const modeLabel = document.getElementById("modeLabel");
+const turnLabel = document.getElementById("turnLabel");
+const roomLabel = document.getElementById("roomLabel");
+const playersBox = document.getElementById("playersBox");
+const resetBtn = document.getElementById("resetBtn");
+const flipBtn = document.getElementById("flipBtn");
+const leaveBtn = document.getElementById("leaveBtn");
+const pgnBox = document.getElementById("pgnBox");
+const chatLog = document.getElementById("chatLog");
+const chatInput = document.getElementById("chatInput");
+const chatSendBtn = document.getElementById("chatSendBtn");
+const countdownOverlay = document.getElementById("countdownOverlay");
+const countdownNumber = document.getElementById("countdownNumber");
 
-const UNICODE={'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔'};
+let roomId = null;
+let myColor = null;
+let currentTurn = null;
+let myName = null;
+let currentMode = "-"; // "friend" | "ranked" | "ai"
+let selectedSq = null;
 
-function createBoard(){
-  board.innerHTML='';
-  const ranks=[8,7,6,5,4,3,2,1],files=['a','b','c','d','e','f','g','h'];
-  for(const r of ranks)for(const f of files){
-    const d=document.createElement('div');
-    d.className='square '+(((r+(f.charCodeAt(0)-96))%2)?'dark':'light');
-    d.dataset.sq=f+r;
-    d.innerHTML='<span></span>';
-    d.onclick=()=>onClick(d);
-    board.appendChild(d);
-  }
-}
-
-function render(fen,last){
-  const rows=fen.split(' ')[0].split('/'); let map={};
-  for(let i=0;i<8;i++){
-    let file=1;
-    for(const c of rows[i]){
-      if(/[1-8]/.test(c)) file+=+c;
-      else{map[String.fromCharCode(96+file)+(8-i)]=c;file++;}
+// Always build board in white orientation. CSS rotates visually for black.
+function createBoard() {
+  boardEl.innerHTML = "";
+  const ranks = [8,7,6,5,4,3,2,1];
+  const files = ["a","b","c","d","e","f","g","h"];
+  for (const r of ranks) {
+    for (const f of files) {
+      const sq = f + r;
+      const div = document.createElement("div");
+      div.className = "square " + (((r + (f.charCodeAt(0)-96)) % 2 === 0) ? "light":"dark");
+      div.dataset.sq = sq;
+      const span = document.createElement("span");
+      span.className = "piece";
+      div.appendChild(span);
+      div.addEventListener("click", () => onSquareClick(div));
+      boardEl.appendChild(div);
     }
   }
-  document.querySelectorAll('.square').forEach(s=>{
-    const p=map[s.dataset.sq];
-    s.firstChild.textContent=p?UNICODE[p]:'';
-    s.classList.remove('kill');
-  });
-  if(last){
-    const sq=document.querySelector(`[data-sq='${last.to}']`);
-    if(sq) sq.classList.add('kill');
-  }
 }
 
-function onClick(el){
-  if(!roomId||myColor!==turn) return;
-  if(!selected){
-    if(!el.firstChild.textContent) return;
-    selected=el.dataset.sq;
-  }else{
-    socket.emit('move',{room:roomId,from:selected,to:el.dataset.sq});
-    selected=null;
-  }
-}
-
-document.getElementById('ranked').onclick=()=>{
-  nameEl=document.getElementById('name').value||'Player';
-  socket.emit('rankedQueue',{name:nameEl});
+const UNICODE = {
+  "p":"\u265F","r":"\u265C","n":"\u265E","b":"\u265D","q":"\u265B","k":"\u265A",
+  "P":"\u2659","R":"\u2656","N":"\u2658","B":"\u2657","Q":"\u2655","K":"\u2654"
 };
 
-socket.on('rankedFound',r=>{
-  joinRoom(r.room);
+function renderFromFen(fen, lastMove) {
+  if (!fen) return;
+  const parts = fen.split(" ");
+  const rows = parts[0].split("/");
+  const sqMap = {};
+  for (let i = 0; i < 8; i++) {
+    const row = rows[i];
+    let file = 1;
+    for (const ch of row) {
+      if (/[1-8]/.test(ch)) {
+        file += parseInt(ch, 10);
+      } else {
+        const rank = 8 - i;
+        const fileChar = String.fromCharCode(96 + file);
+        const sq = fileChar + rank;
+        sqMap[sq] = ch;
+        file++;
+      }
+    }
+  }
+  document.querySelectorAll(".square").forEach(div => {
+    const sq = div.dataset.sq;
+    const code = sqMap[sq];
+    const span = div.querySelector(".piece");
+    span.textContent = code ? UNICODE[code] : "";
+    div.classList.remove("selected","kill");
+  });
+  if (lastMove && lastMove.to) {
+    const target = document.querySelector(`.square[data-sq="${lastMove.to}"]`);
+    if (target && lastMove.captured) {
+      target.classList.add("kill");
+    }
+  }
+}
+
+function isMyTurn() {
+  return myColor && currentTurn && myColor[0] === currentTurn;
+}
+
+function onSquareClick(div) {
+  if (!roomId) return;
+  if (!isMyTurn()) return;
+  const sq = div.dataset.sq;
+  const pieceChar = div.querySelector(".piece").textContent;
+  if (!selectedSq) {
+    if (!pieceChar) return;
+    const cp = pieceChar.codePointAt(0);
+    const isWhitePiece = cp >= 0x2654 && cp <= 0x2659;
+    const isBlackPiece = cp >= 0x265A && cp <= 0x265F;
+    if ((myColor === "w" && !isWhitePiece) || (myColor === "b" && !isBlackPiece)) return;
+    selectedSq = sq;
+    div.classList.add("selected");
+  } else {
+    if (selectedSq === sq) {
+      selectedSq = null;
+      document.querySelectorAll(".square").forEach(s => s.classList.remove("selected"));
+      return;
+    }
+    socket.emit("move", { room: roomId, from: selectedSq, to: sq }, (res) => {
+      if (!res || !res.ok) {
+        // optional: show small toast
+      }
+    });
+    selectedSq = null;
+    document.querySelectorAll(".square").forEach(s => s.classList.remove("selected"));
+  }
+}
+
+function setModeLabel() {
+  let label = "Mode: -";
+  if (currentMode === "friend") label = "Mode: Play with Friend";
+  if (currentMode === "ranked") label = "Mode: Ranked";
+  if (currentMode === "ai") label = "Mode: vs AI";
+  modeLabel.textContent = label;
+}
+
+function setStatus(text) {
+  statusText.textContent = text;
+}
+
+function updatePlayersBox(players) {
+  playersBox.innerHTML = "";
+  if (!players || !players.length) {
+    playersBox.textContent = "Waiting for players...";
+    return;
+  }
+  for (const p of players) {
+    const row = document.createElement("div");
+    row.innerHTML = `<span>${p.name}</span><span>${p.color.toUpperCase()}${p.elo ? " · " + p.elo : ""}</span>`;
+    playersBox.appendChild(row);
+  }
+}
+
+function startCountdownAndShowBoard() {
+  let n = 3;
+  countdownOverlay.classList.add("active");
+  countdownNumber.textContent = n;
+  const timer = setInterval(() => {
+    n--;
+    if (n > 0) {
+      countdownNumber.textContent = n;
+    } else if (n === 0) {
+      countdownNumber.textContent = "GO";
+    } else {
+      clearInterval(timer);
+      countdownOverlay.classList.remove("active");
+    }
+  }, 800);
+}
+
+playFriendBtn.addEventListener("click", () => {
+  currentMode = "friend";
+  setModeLabel();
+  friendPanel.style.display = "block";
+  setStatus("Friend mode: create a room or join by code.");
 });
 
-document.getElementById('ai').onclick=()=>{
-  nameEl=document.getElementById('name').value||'Player';
-  socket.emit('aiGame',{name:nameEl},res=>joinRoom(res.room));
-};
+playRankedBtn.addEventListener("click", () => {
+  currentMode = "ranked";
+  setModeLabel();
+  friendPanel.style.display = "none";
+  myName = nameInput.value.trim() || "Player";
+  socket.emit("rankedQueue", { name: myName });
+  setStatus("Searching for ranked opponent...");
+});
 
-document.getElementById('join').onclick=()=>{
-  nameEl=document.getElementById('name').value||'Player';
-  joinRoom(document.getElementById('room').value);
-};
-
-function joinRoom(code){
-  socket.emit('join',{room:code,name:nameEl},res=>{
-    roomId=code; myColor=res.color;
-    menu.style.display='none'; game.style.display='flex';
+playAIBtn.addEventListener("click", () => {
+  currentMode = "ai";
+  setModeLabel();
+  friendPanel.style.display = "none";
+  myName = nameInput.value.trim() || "Player";
+  socket.emit("aiGame", { name: myName }, (res) => {
+    if (!res || !res.ok) {
+      setStatus("AI game failed.");
+      return;
+    }
+    roomId = res.room;
+    myColor = res.color;
+    currentTurn = res.turn;
+    roomLabel.textContent = roomId;
+    setStatus("Playing vs AI as " + (myColor === "w" ? "White" : "Black") + ".");
+    if (myColor === "b") boardEl.classList.add("rotated"); else boardEl.classList.remove("rotated");
     createBoard();
-    render(res.fen);
+    renderFromFen(res.fen);
+    updatePlayersBox(res.players);
+    startCountdownAndShowBoard();
+  });
+});
+
+createRoomBtn.addEventListener("click", () => {
+  currentMode = "friend";
+  setModeLabel();
+  myName = nameInput.value.trim() || "Player";
+  socket.emit("create", { name: myName }, (res) => {
+    if (!res) return;
+    roomId = res.room;
+    joinRoom(roomId);
+  });
+});
+
+joinRoomBtn.addEventListener("click", () => {
+  currentMode = "friend";
+  setModeLabel();
+  const code = joinCodeInput.value.trim();
+  if (!code) return;
+  roomId = code;
+  joinRoom(roomId);
+});
+
+function joinRoom(code) {
+  myName = myName || nameInput.value.trim() || "Player";
+  socket.emit("join", { room: code, name: myName }, (res) => {
+    if (!res || !res.ok) {
+      setStatus(res && res.err ? res.err : "Join failed.");
+      return;
+    }
+    roomId = res.room || code;
+    myColor = res.color;
+    currentTurn = res.turn;
+    roomLabel.textContent = roomId;
+    setStatus("In room " + roomId + " as " + myName + " (" + myColor + ").");
+    if (myColor === "b") boardEl.classList.add("rotated"); else boardEl.classList.remove("rotated");
+    createBoard();
+    renderFromFen(res.fen);
+    updatePlayersBox(res.players);
+    pgnBox.textContent = res.pgn || "";
+    startCountdownAndShowBoard();
   });
 }
 
-document.getElementById('send').onclick=()=>{
-  const msg=document.getElementById('msg').value;
-  socket.emit('chat',{room:roomId,name:nameEl,msg});
-};
-
-socket.on('chat',c=>{
-  chatEl.innerHTML+=`<div><b>${c.name}:</b> ${c.msg}</div>`;
+// Ranked found handler
+socket.on("rankedFound", (payload) => {
+  const { room, fen, turn, players, asColor } = payload;
+  roomId = room;
+  myColor = asColor;
+  currentTurn = turn;
+  roomLabel.textContent = roomId;
+  if (myColor === "b") boardEl.classList.add("rotated"); else boardEl.classList.remove("rotated");
+  createBoard();
+  renderFromFen(fen);
+  updatePlayersBox(players);
+  setStatus("Ranked opponent found! You are " + (myColor === "w" ? "White" : "Black") + ".");
+  startCountdownAndShowBoard();
 });
 
-socket.on('state',s=>{
-  turn=s.turn;
-  render(s.fen,s.lastMove);
+// Reset / Flip / Leave
+resetBtn.addEventListener("click", () => {
+  if (!roomId) return;
+  socket.emit("reset", { room: roomId });
 });
+flipBtn.addEventListener("click", () => {
+  boardEl.classList.toggle("rotated");
+});
+leaveBtn.addEventListener("click", () => {
+  window.location.reload();
+});
+
+// Chat
+chatSendBtn.addEventListener("click", () => {
+  if (!roomId) return;
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+  const nm = myName || nameInput.value.trim() || "Player";
+  socket.emit("chat", { room: roomId, name: nm, msg });
+  chatInput.value = "";
+});
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") chatSendBtn.click();
+});
+
+socket.on("chat", (c) => {
+  const line = document.createElement("div");
+  const date = new Date(c.ts || Date.now());
+  const t = date.toTimeString().slice(0,5);
+  line.innerHTML = `<span style="color:#6ee7b7;font-size:11px;">[${t}]</span> <strong>${c.name}:</strong> ${c.msg}`;
+  chatLog.appendChild(line);
+  chatLog.scrollTop = chatLog.scrollHeight;
+});
+
+// Game state updates
+socket.on("state", (s) => {
+  if (s.turn) {
+    currentTurn = s.turn;
+    turnLabel.textContent = "Turn: " + (currentTurn === "w" ? "White" : "Black");
+  }
+  if (s.players) {
+    updatePlayersBox(s.players);
+  }
+  if (s.fen) {
+    renderFromFen(s.fen, s.lastMove);
+  }
+  if (s.pgn) {
+    pgnBox.textContent = s.pgn;
+  }
+});
+
+createBoard();
+setModeLabel();
+setStatus("Choose a mode to begin.");
 </script>
 </body>
 </html>
