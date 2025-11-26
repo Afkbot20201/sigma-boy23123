@@ -1,6 +1,4 @@
-Chess fixed v3
-
-Run:
+Futuristic Chess v4
 
 npm install
 npm start

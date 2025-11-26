@@ -1,198 +1,138 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Chess Fixed v3</title>
+<meta charset="utf-8">
+<title>Futuristic Chess v4</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px;background:#071024;color:#e6eef8}
-  #app{display:flex;gap:20px}
-  #board{display:grid;grid-template-columns:repeat(8,64px);grid-template-rows:repeat(8,64px);border-radius:8px;overflow:hidden;transition:transform .2s ease}
-  .square{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:36px;user-select:none;cursor:pointer;transition:background .12s, transform .12s}
-  .light{background:#f0d9b5}
-  .dark{background:#b58863}
-  .selected{outline:3px solid #7c3aed;transform:scale(1.05)}
-  .lastMove{box-shadow:inset 0 0 0 4px rgba(6,182,212,0.25)}
-  .piece{display:inline-block;transition:transform .2s}
-  #board.rotated{transform:rotate(180deg)}
-  #board.rotated .piece{transform:rotate(180deg)}
-  .panel{width:360px}
-  button{padding:8px 10px;border-radius:8px;border:0;background:#7c3aed;color:white;cursor:pointer}
-  .info{margin-bottom:8px}
+body{margin:0;background:#020617;color:white;font-family:Orbitron,system-ui;}
+#screen{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.panel{background:rgba(15,23,42,.95);padding:32px;border-radius:18px;box-shadow:0 0 40px #00f0ff}
+.hidden{display:none}
+#countdown{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+font-size:120px;background:rgba(0,0,0,.7);z-index:5}
+#game{display:flex;gap:24px;animation:zoom .5s ease}
+@keyframes zoom{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+#board{display:grid;grid-template-columns:repeat(8,64px);grid-template-rows:repeat(8,64px)}
+.square{display:flex;align-items:center;justify-content:center;font-size:36px}
+.light{background:#eadbbf}.dark{background:#b0825a}
+.selected{outline:3px solid #00f0ff}
+#board.rotated{transform:rotate(180deg)}
+#board.rotated span{transform:rotate(180deg)}
 </style>
 </head>
 <body>
-<div id="app">
-  <div>
-    <div id="board" role="grid" aria-label="Chess board"></div>
-    <div style="margin-top:12px">
-      <button id="reset">Reset</button>
-      <button id="flip">Flip</button>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="info" id="status">Not connected</div>
-    <input id="name" placeholder="Your name" /><br/><br/>
-    <button id="create">Create</button>
-    <input id="room" placeholder="room id" />
-    <button id="join">Join</button>
-    <div style="margin-top:12px">
-      <strong>Players</strong>
-      <div id="players"></div>
-    </div>
-    <div style="margin-top:12px"><strong>Moves</strong><div id="pgn" style="color:#94a3b8"></div></div>
-  </div>
+<div id="screen">
+<div id="lobby" class="panel">
+<h1>FUTURISTIC CHESS</h1>
+<input id="name" placeholder="Name"><br><br>
+<button id="create">Create</button><br><br>
+<input id="room" placeholder="Room code"><br><br>
+<button id="join">Join</button>
+<div id="status"></div>
+</div>
+<div id="countdown" class="hidden">3</div>
+<div id="game" class="hidden">
+<div id="board"></div>
+<div style="margin-left:20px">
+<div id="players"></div>
+<div id="turn"></div>
+<button id="leave">Leave</button>
+<div id="pgn"></div>
+</div>
+</div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
-const board = document.getElementById('board');
-const status = document.getElementById('status');
-const playersEl = document.getElementById('players');
-const pgnEl = document.getElementById('pgn');
+const socket=io();
+const board=document.getElementById('board');
+const lobby=document.getElementById('lobby');
+const game=document.getElementById('game');
+const countdown=document.getElementById('countdown');
+const status=document.getElementById('status');
+const playersEl=document.getElementById('players');
+const turnEl=document.getElementById('turn');
+const pgnEl=document.getElementById('pgn');
 
-let roomId = null, myColor = null, currentTurn = null, selected = null, myName = null;
-const UNICODE = {'p':'\u265F','r':'\u265C','n':'\u265E','b':'\u265D','q':'\u265B','k':'\u265A','P':'\u2659','R':'\u2656','N':'\u2658','B':'\u2657','Q':'\u2655','K':'\u2654'};
+let roomId=null,myColor=null,turn=null,selected=null;
+const UNICODE={'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔'};
 
-// Always create board with standard coordinates (a1 bottom-left from White view)
-// We'll rotate the entire board visually for Black to avoid remapping coordinates.
 function createBoard(){
-  board.innerHTML = '';
-  const ranks = [8,7,6,5,4,3,2,1];
-  const files = ['a','b','c','d','e','f','g','h'];
-  for(const r of ranks){
-    for(const f of files){
-      const sq = f + r;
-      const div = document.createElement('div');
-      div.className = 'square ' + (((r + (f.charCodeAt(0)-96)) % 2 === 0) ? 'light':'dark');
-      div.dataset.sq = sq;
-      div.innerHTML = '<span class="piece"></span>';
-      div.addEventListener('click', onSquareClick);
-      board.appendChild(div);
-    }
+  board.innerHTML='';
+  const ranks=[8,7,6,5,4,3,2,1],files=['a','b','c','d','e','f','g','h'];
+  for(const r of ranks)for(const f of files){
+    const d=document.createElement('div');
+    d.className='square '+(((r+(f.charCodeAt(0)-96))%2)?'dark':'light');
+    d.dataset.sq=f+r;
+    d.innerHTML='<span></span>';
+    d.onclick=()=>onClick(d);
+    board.appendChild(d);
   }
 }
 
-function renderFromFen(fen){
-  if(!fen) return;
-  const parts = fen.split(' ');
-  const rows = parts[0].split('/');
-  const sqs = {};
+function renderFen(fen){
+  const rows=fen.split(' ')[0].split('/'); let map={};
   for(let i=0;i<8;i++){
-    const row = rows[i];
-    let file = 1;
-    for(const ch of row){
-      if(/[1-8]/.test(ch)){ file += parseInt(ch); }
-      else {
-        const rank = 8 - i;
-        const fileChar = String.fromCharCode(96 + file);
-        const sq = fileChar + rank;
-        sqs[sq] = ch;
-        file++;
-      }
+    let file=1;
+    for(const c of rows[i]){
+      if(/[1-8]/.test(c)) file+=+c;
+      else{ map[String.fromCharCode(96+file)+(8-i)]=c; file++; }
     }
   }
-  document.querySelectorAll('.square').forEach(div=>{
-    const sq = div.dataset.sq;
-    const piece = sqs[sq] ? UNICODE[sqs[sq]] : '';
-    div.querySelector('.piece').textContent = piece;
-    div.classList.remove('selected','lastMove');
+  document.querySelectorAll('.square').forEach(s=>{
+    const p=map[s.dataset.sq];
+    s.querySelector('span').textContent=p?UNICODE[p]:'';
+    s.classList.remove('selected');
   });
-  // update last move highlighting handled elsewhere
 }
 
-// selection and move logic
-function isMyTurn(){ return myColor && currentTurn && myColor[0] === currentTurn; }
-
-function onSquareClick(e){
-  const sq = e.currentTarget.dataset.sq;
-  if(!roomId){ alert('Join a room first'); return; }
+function onClick(el){
+  if(!roomId||myColor!==turn) return;
   if(!selected){
-    if(!isMyTurn()) return;
-    const piece = e.currentTarget.querySelector('.piece').textContent;
-    if(!piece) return;
-    const isWhite = piece.codePointAt(0) >= 0x2654 && piece.codePointAt(0) <= 0x2659;
-    const isBlack = piece.codePointAt(0) >= 0x265A && piece.codePointAt(0) <= 0x265F;
-    if((myColor === 'w' && !isWhite) || (myColor === 'b' && !isBlack)) return;
-    selected = sq;
-    e.currentTarget.classList.add('selected');
-  } else {
-    if(selected === sq){
-      selected = null;
-      document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
-      return;
-    }
-    socket.emit('move', { room: roomId, from: selected, to: sq }, (res)=>{
-      if(!res.ok) alert(res.err || 'Illegal move');
-    });
-    selected = null;
-    document.querySelectorAll('.square').forEach(d=>d.classList.remove('selected'));
+    if(!el.querySelector('span').textContent) return;
+    selected=el.dataset.sq; el.classList.add('selected');
+  }else{
+    socket.emit('move',{room:roomId,from:selected,to:el.dataset.sq});
+    selected=null;
+    document.querySelectorAll('.square').forEach(x=>x.classList.remove('selected'));
   }
 }
 
-// UI buttons
-document.getElementById('create').addEventListener('click', ()=>{
-  const name = document.getElementById('name').value.trim() || 'Player';
-  myName = name;
-  socket.emit('create', { name }, (res)=>{
-    roomId = res.room;
-    joinRoom(roomId, name);
-  });
-});
-document.getElementById('join').addEventListener('click', ()=>{
-  const name = document.getElementById('name').value.trim() || 'Player';
-  const code = document.getElementById('room').value.trim();
-  if(!code) return alert('Enter room id');
-  myName = name;
-  joinRoom(code, name);
-});
-document.getElementById('reset').addEventListener('click', ()=>{
-  if(!roomId) return alert('Join a room first');
-  socket.emit('reset', { room: roomId });
-});
-document.getElementById('flip').addEventListener('click', ()=>{
-  if(board.classList.contains('rotated')) board.classList.remove('rotated');
-  else board.classList.add('rotated');
-});
+function startCountdown(){
+  countdown.classList.remove('hidden');
+  let n=3; countdown.textContent=n;
+  const t=setInterval(()=>{
+    n--; countdown.textContent=n||'GO';
+    if(n<0){ clearInterval(t); countdown.classList.add('hidden');
+      lobby.classList.add('hidden'); game.classList.remove('hidden'); }
+  },800);
+}
 
-function joinRoom(code, name){
-  socket.emit('join', { room: code, name }, (r)=>{
-    if(!r.ok) return alert(r.err || 'Failed to join');
-    roomId = code;
-    myColor = r.color;
-    currentTurn = r.turn;
-    // set visual rotation based on color
-    if(myColor === 'b') board.classList.add('rotated'); else board.classList.remove('rotated');
-    renderFromFen(r.fen);
-    updatePlayers(r.players);
-    status.textContent = 'In room ' + roomId + ' as ' + name + ' (' + myColor + ')';
-    pgnEl.textContent = r.pgn || '';
+document.getElementById('create').onclick=()=>{
+  socket.emit('create',{name:name.value||'Player'},res=>joinRoom(res.room));
+};
+document.getElementById('join').onclick=()=>{
+  joinRoom(room.value);
+};
+document.getElementById('leave').onclick=()=>location.reload();
+
+function joinRoom(code){
+  socket.emit('join',{room:code,name:name.value||'Player'},res=>{
+    if(!res.ok){status.textContent=res.err;return;}
+    roomId=code; myColor=res.color;
+    if(myColor==='b') board.classList.add('rotated');
+    renderFen(res.fen); startCountdown();
   });
 }
 
-function updatePlayers(arr){
-  playersEl.innerHTML = '';
-  for(const p of arr){
-    const d = document.createElement('div');
-    d.textContent = p.name + ' (' + p.color + ')';
-    playersEl.appendChild(d);
-  }
-}
-
-// socket handlers
-socket.on('state', (s)=>{
-  if(s.players) updatePlayers(s.players);
-  if(s.fen) renderFromFen(s.fen);
-  if(s.pgn) pgnEl.textContent = s.pgn;
-  if(s.turn) currentTurn = s.turn;
-  if(s.lastMove){
-    setTimeout(()=>{
-      document.querySelectorAll('.square').forEach(d=>{
-        if([s.lastMove.from, s.lastMove.to].includes(d.dataset.sq)) d.classList.add('lastMove');
-      });
-    },20);
-  }
+socket.on('state',s=>{
+  turn=s.turn;
+  turnEl.textContent='Turn: '+(turn==='w'?'White':'Black');
+  playersEl.innerHTML=s.players.map(p=>p.name+' ('+p.color+')').join('<br>');
+  pgnEl.textContent=s.pgn||'';
+  if(s.fen) renderFen(s.fen);
 });
 
 createBoard();
