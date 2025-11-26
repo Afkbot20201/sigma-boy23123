@@ -22,11 +22,11 @@ function makeId(len = 6) {
 }
 
 function getElo(name) {
+  if (!name) name = "Player";
   if (!elo[name]) elo[name] = 1000;
   return elo[name];
 }
 
-// Very simple Elo-ish update
 function updateElo(winnerName, loserName) {
   if (!winnerName || !loserName) return;
   getElo(winnerName);
@@ -38,7 +38,10 @@ function updateElo(winnerName, loserName) {
 io.on("connection", (socket) => {
   console.log("connected", socket.id);
 
-  // Queue for ranked match
+  socket.on("eloSelf", ({ name }, cb) => {
+    cb && cb({ elo: getElo(name) });
+  });
+
   socket.on("rankedQueue", ({ name }) => {
     if (!name) name = "Player";
     socket.playerName = name;
@@ -69,14 +72,14 @@ io.on("connection", (socket) => {
         room,
         fen: chess.fen(),
         turn: chess.turn(),
-        players: playersArr
+        players: playersArr,
+        pgn: chess.pgn()
       };
       a.socket.emit("rankedFound", { ...payload, asColor: "w" });
       b.socket.emit("rankedFound", { ...payload, asColor: "b" });
     }
   });
 
-  // Create casual room (friend)
   socket.on("create", ({ name }, cb) => {
     if (!name) name = "Player";
     let room = makeId();
@@ -92,11 +95,9 @@ io.on("connection", (socket) => {
     cb && cb({ room });
   });
 
-  // Join room (friend or ranked)
   socket.on("join", ({ room, name }, cb) => {
     if (!name) name = "Player";
     if (!games[room]) {
-      // if room not exist, create casual
       const chess = new Chess();
       games[room] = {
         chess,
@@ -122,25 +123,27 @@ io.on("connection", (socket) => {
     for (const [id, nm] of g.players.entries()) {
       playersArr.push({ name: nm, color: g.colors.get(id), elo: getElo(nm) });
     }
+    const chess = g.chess;
     cb &&
       cb({
         ok: true,
         room,
-        fen: g.chess.fen(),
+        fen: chess.fen(),
         color: g.colors.get(socket.id),
-        turn: g.chess.turn(),
+        turn: chess.turn(),
         players: playersArr,
         ranked: !!g.ranked,
-        ai: !!g.ai
+        ai: !!g.ai,
+        pgn: chess.pgn()
       });
     io.to(room).emit("state", {
-      fen: g.chess.fen(),
-      turn: g.chess.turn(),
-      players: playersArr
+      fen: chess.fen(),
+      turn: chess.turn(),
+      players: playersArr,
+      pgn: chess.pgn()
     });
   });
 
-  // Start AI game (player is always White)
   socket.on("aiGame", ({ name }, cb) => {
     if (!name) name = "Player";
     let room = makeId();
@@ -155,7 +158,10 @@ io.on("connection", (socket) => {
     games[room].players.set(socket.id, name);
     games[room].colors.set(socket.id, "w");
     socket.join(room);
-    const playersArr = [{ name, color: "w", elo: getElo(name) }, { name: "AI", color: "b", elo: 0 }];
+    const playersArr = [
+      { name, color: "w", elo: getElo(name) },
+      { name: "AI", color: "b", elo: 0 }
+    ];
     cb &&
       cb({
         ok: true,
@@ -165,16 +171,17 @@ io.on("connection", (socket) => {
         turn: chess.turn(),
         players: playersArr,
         ranked: false,
-        ai: true
+        ai: true,
+        pgn: chess.pgn()
       });
     io.to(room).emit("state", {
       fen: chess.fen(),
       turn: chess.turn(),
-      players: playersArr
+      players: playersArr,
+      pgn: chess.pgn()
     });
   });
 
-  // Move
   socket.on("move", ({ room, from, to }, cb) => {
     const g = games[room];
     if (!g) {
@@ -206,10 +213,11 @@ io.on("connection", (socket) => {
       fen: chess.fen(),
       turn: chess.turn(),
       lastMove: result,
-      players: playersArr
+      players: playersArr,
+      pgn: chess.pgn()
     });
 
-    // If checkmate and ranked, update simple Elo
+    // Ranked Elo update on game over
     if (chess.isGameOver() && g.ranked) {
       const winnerColor = result.color;
       let winnerName = null;
@@ -223,10 +231,9 @@ io.on("connection", (socket) => {
 
     cb && cb({ ok: true });
 
-    // AI response if needed
+    // AI reply if needed
     if (g.ai && !chess.isGameOver()) {
       if (chess.turn() === "b") {
-        // very dumb AI: random move
         const moves = chess.moves({ verbose: true });
         if (moves.length) {
           const m = moves[Math.floor(Math.random() * moves.length)];
@@ -235,30 +242,31 @@ io.on("connection", (socket) => {
             fen: chess.fen(),
             turn: chess.turn(),
             lastMove: aiRes,
-            players: playersArr
+            players: playersArr,
+            pgn: chess.pgn()
           });
         }
       }
     }
   });
 
-  // Reset
   socket.on("reset", ({ room }) => {
     const g = games[room];
     if (!g) return;
-    g.chess.reset();
+    const chess = g.chess;
+    chess.reset();
     const playersArr = [];
     for (const [id, nm] of g.players.entries()) {
       playersArr.push({ name: nm, color: g.colors.get(id), elo: getElo(nm) });
     }
     io.to(room).emit("state", {
-      fen: g.chess.fen(),
-      turn: g.chess.turn(),
-      players: playersArr
+      fen: chess.fen(),
+      turn: chess.turn(),
+      players: playersArr,
+      pgn: chess.pgn()
     });
   });
 
-  // Chat
   socket.on("chat", ({ room, name, msg }) => {
     if (!room || !msg) return;
     io.to(room).emit("chat", {
@@ -269,21 +277,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    // Remove from ranked queue
     for (let i = rankedQueue.length - 1; i >= 0; i--) {
       if (rankedQueue[i].socket.id === socket.id) {
         rankedQueue.splice(i, 1);
       }
     }
-    // Cleanup games
     for (const room of Object.keys(games)) {
       const g = games[room];
       if (g.players.has(socket.id)) {
         g.players.delete(socket.id);
         g.colors.delete(socket.id);
-        if (g.players.size === 0) {
-          delete games[room];
-        }
+        if (g.players.size === 0) delete games[room];
       }
     }
     console.log("disconnected", socket.id);

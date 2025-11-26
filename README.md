@@ -1,13 +1,15 @@
-# Ultimate Multiplayer Chess (Working Core + Modern UI)
+# Nemesis Chess (Ultimate Modern Version)
 
 Features:
 - Play with a friend (room create / join)
-- Ranked matchmaking (very simple queue)
+- Ranked matchmaking with simple Elo and rank tiers:
+  - Bronze, Silver, Gold, Platinum, Diamond, Nemesis
 - Play vs AI (random-move bot)
-- Modern, clean UI
-- Stable board (no coordinate desync), CSS rotation for Black
-- In-game chat
-- Simple capture "kill effect" glow
+- Modern, responsive UI
+- Board hidden until a game actually starts
+- In-game chat per room
+- Capture "kill effect" animation
+- Stable board & move logic (CSS rotation for black, coordinates stay fixed)
 
 ## Run locally
 
@@ -16,4 +18,4 @@ npm install
 npm start
 ```
 
-Open http://localhost:3000 in two browser windows for multiplayer.
+Open http://localhost:3000 in two browser windows for multiplayer or ranked, or just one for vs AI.
