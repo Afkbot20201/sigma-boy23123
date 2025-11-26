@@ -2,61 +2,55 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Futuristic Chess v4</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<title>Ultimate Chess v5</title>
 <style>
-body{margin:0;background:#020617;color:white;font-family:Orbitron,system-ui;}
-#screen{min-height:100vh;display:flex;align-items:center;justify-content:center}
-.panel{background:rgba(15,23,42,.95);padding:32px;border-radius:18px;box-shadow:0 0 40px #00f0ff}
-.hidden{display:none}
-#countdown{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-font-size:120px;background:rgba(0,0,0,.7);z-index:5}
-#game{display:flex;gap:24px;animation:zoom .5s ease}
-@keyframes zoom{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
-#board{display:grid;grid-template-columns:repeat(8,64px);grid-template-rows:repeat(8,64px)}
-.square{display:flex;align-items:center;justify-content:center;font-size:36px}
+body{background:#020617;color:white;font-family:Orbitron;margin:0}
+#menu,#game{display:flex;justify-content:center;align-items:center;min-height:100vh}
+.panel{background:#111827;padding:30px;border-radius:14px;text-align:center}
+button,input{margin-top:10px;padding:10px;border-radius:8px;border:none}
+#board{display:grid;grid-template-columns:repeat(8,60px);grid-template-rows:repeat(8,60px)}
+.square{display:flex;align-items:center;justify-content:center;font-size:32px}
 .light{background:#eadbbf}.dark{background:#b0825a}
-.selected{outline:3px solid #00f0ff}
-#board.rotated{transform:rotate(180deg)}
-#board.rotated span{transform:rotate(180deg)}
+.kill{animation:boom .3s}
+@keyframes boom{0%{transform:scale(.5)}100%{transform:scale(1.2)}}
+#side{margin-left:20px}
 </style>
 </head>
 <body>
-<div id="screen">
-<div id="lobby" class="panel">
-<h1>FUTURISTIC CHESS</h1>
-<input id="name" placeholder="Name"><br><br>
-<button id="create">Create</button><br><br>
-<input id="room" placeholder="Room code"><br><br>
-<button id="join">Join</button>
-<div id="status"></div>
+
+<div id="menu">
+  <div class="panel">
+    <h1>ULTIMATE CHESS</h1>
+    <input id="name" placeholder="Name">
+    <button id="ranked">Ranked Match</button>
+    <button id="ai">Play vs AI</button>
+    <input id="room" placeholder="Room">
+    <button id="join">Join</button>
+  </div>
 </div>
-<div id="countdown" class="hidden">3</div>
-<div id="game" class="hidden">
-<div id="board"></div>
-<div style="margin-left:20px">
-<div id="players"></div>
-<div id="turn"></div>
-<button id="leave">Leave</button>
-<div id="pgn"></div>
-</div>
-</div>
+
+<div id="game" style="display:none">
+  <div id="board"></div>
+  <div id="side">
+    <div id="players"></div>
+    <div id="turn"></div>
+    <div id="chat"></div>
+    <input id="msg" placeholder="Say something">
+    <button id="send">Send</button>
+    <button onclick="location.reload()">Leave</button>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket=io();
+const socket = io();
 const board=document.getElementById('board');
-const lobby=document.getElementById('lobby');
+const menu=document.getElementById('menu');
 const game=document.getElementById('game');
-const countdown=document.getElementById('countdown');
-const status=document.getElementById('status');
-const playersEl=document.getElementById('players');
-const turnEl=document.getElementById('turn');
-const pgnEl=document.getElementById('pgn');
+const chatEl=document.getElementById('chat');
 
-let roomId=null,myColor=null,turn=null,selected=null;
+let roomId=null,myColor=null,turn=null,selected=null,nameEl=document.getElementById('name').value;
+
 const UNICODE={'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔'};
 
 function createBoard(){
@@ -72,70 +66,78 @@ function createBoard(){
   }
 }
 
-function renderFen(fen){
+function render(fen,last){
   const rows=fen.split(' ')[0].split('/'); let map={};
   for(let i=0;i<8;i++){
     let file=1;
     for(const c of rows[i]){
       if(/[1-8]/.test(c)) file+=+c;
-      else{ map[String.fromCharCode(96+file)+(8-i)]=c; file++; }
+      else{map[String.fromCharCode(96+file)+(8-i)]=c;file++;}
     }
   }
   document.querySelectorAll('.square').forEach(s=>{
     const p=map[s.dataset.sq];
-    s.querySelector('span').textContent=p?UNICODE[p]:'';
-    s.classList.remove('selected');
+    s.firstChild.textContent=p?UNICODE[p]:'';
+    s.classList.remove('kill');
   });
+  if(last){
+    const sq=document.querySelector(`[data-sq='${last.to}']`);
+    if(sq) sq.classList.add('kill');
+  }
 }
 
 function onClick(el){
   if(!roomId||myColor!==turn) return;
   if(!selected){
-    if(!el.querySelector('span').textContent) return;
-    selected=el.dataset.sq; el.classList.add('selected');
+    if(!el.firstChild.textContent) return;
+    selected=el.dataset.sq;
   }else{
     socket.emit('move',{room:roomId,from:selected,to:el.dataset.sq});
     selected=null;
-    document.querySelectorAll('.square').forEach(x=>x.classList.remove('selected'));
   }
 }
 
-function startCountdown(){
-  countdown.classList.remove('hidden');
-  let n=3; countdown.textContent=n;
-  const t=setInterval(()=>{
-    n--; countdown.textContent=n||'GO';
-    if(n<0){ clearInterval(t); countdown.classList.add('hidden');
-      lobby.classList.add('hidden'); game.classList.remove('hidden'); }
-  },800);
-}
+document.getElementById('ranked').onclick=()=>{
+  nameEl=document.getElementById('name').value||'Player';
+  socket.emit('rankedQueue',{name:nameEl});
+};
 
-document.getElementById('create').onclick=()=>{
-  socket.emit('create',{name:name.value||'Player'},res=>joinRoom(res.room));
+socket.on('rankedFound',r=>{
+  joinRoom(r.room);
+});
+
+document.getElementById('ai').onclick=()=>{
+  nameEl=document.getElementById('name').value||'Player';
+  socket.emit('aiGame',{name:nameEl},res=>joinRoom(res.room));
 };
+
 document.getElementById('join').onclick=()=>{
-  joinRoom(room.value);
+  nameEl=document.getElementById('name').value||'Player';
+  joinRoom(document.getElementById('room').value);
 };
-document.getElementById('leave').onclick=()=>location.reload();
 
 function joinRoom(code){
-  socket.emit('join',{room:code,name:name.value||'Player'},res=>{
-    if(!res.ok){status.textContent=res.err;return;}
+  socket.emit('join',{room:code,name:nameEl},res=>{
     roomId=code; myColor=res.color;
-    if(myColor==='b') board.classList.add('rotated');
-    renderFen(res.fen); startCountdown();
+    menu.style.display='none'; game.style.display='flex';
+    createBoard();
+    render(res.fen);
   });
 }
 
-socket.on('state',s=>{
-  turn=s.turn;
-  turnEl.textContent='Turn: '+(turn==='w'?'White':'Black');
-  playersEl.innerHTML=s.players.map(p=>p.name+' ('+p.color+')').join('<br>');
-  pgnEl.textContent=s.pgn||'';
-  if(s.fen) renderFen(s.fen);
+document.getElementById('send').onclick=()=>{
+  const msg=document.getElementById('msg').value;
+  socket.emit('chat',{room:roomId,name:nameEl,msg});
+};
+
+socket.on('chat',c=>{
+  chatEl.innerHTML+=`<div><b>${c.name}:</b> ${c.msg}</div>`;
 });
 
-createBoard();
+socket.on('state',s=>{
+  turn=s.turn;
+  render(s.fen,s.lastMove);
+});
 </script>
 </body>
 </html>

@@ -1,6 +1,1 @@
-Futuristic Chess v4
-
-npm install
-npm start
-
-Open http://localhost:3000
+Ultimate Chess v5 with Ranked, AI, Chat, Kill Effects
