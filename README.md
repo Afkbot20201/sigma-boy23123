@@ -1,265 +1,257 @@
-# Gifty Chess – Multiplayer Chess Platform
+# Arena Nemesis
 
-Production-ready multiplayer chess platform with:
+Arena Nemesis is a file-backed, Render-ready, online multiplayer shooter built with:
 
-- Node.js + Express + Socket.IO backend
-- PostgreSQL database
-- React + Vite + TailwindCSS frontend
-- JWT authentication
-- Ranked ELO system
-- Real-time matchmaking and gameplay
+- **Phaser 3** game client
+- **Node.js + Express + Socket.IO** backend
+- **lowdb (JSON file)** persistence
+- Pure **file-based storage**, compatible with Render free tier ephemeral disks.
 
-**IMPORTANT**: The only possible admin account is the user with username `Gifty`.
+> This repo is designed to be dropped into GitHub and deployed to Render free tier as-is.
 
 ---
 
-## Project Structure
+## Features
+
+- JWT-based auth with bcrypt password hashing
+- File-based profiles with stats, ELO, rank tiers (Bronze → Nemesis)
+- Casual and Ranked queues
+- Private lobbies
+- Team Deathmatch core loop (plus hooks for FFA / Domination)
+- AI bots in training/range modes
+- Server-authoritative movement and shooting
+- Simple lag compensation and client-side interpolation
+- Anti-cheat heuristics:
+  - Packet rate limiting
+  - Speed-hack detection
+  - Aimbot statistical suspicion
+- Admin panel REST API for bans, rank reset and server logs
+- In-game economy:
+  - XP, leveling
+  - Currency rewards
+  - Local cosmetic store and battle pass data
+
+The code is intentionally compact enough to run comfortably on a Render free instance while still showing full-stack patterns.
+
+---
+
+## Folder Structure
+
+- `server/`
+  - `index.js` – Express + Socket.IO entry point
+  - `config.js` – configuration and rank tiers
+  - `auth.js` – registration, login, JWT helpers
+  - `persistence.js` – lowdb init, safe writes, corruption recovery
+  - `elo.js` – ELO / rank tier math
+  - `antiCheat.js` – speed + aimbot + packet heuristics
+  - `matchmaking.js` – queues and private lobbies
+  - `gameServer.js` – match loop, tick, scoring, XP, ELO updates
+  - `ai.js` – simple bot behaviors
+  - `routes/` – REST endpoints
+  - `sockets/` – WebSocket wiring
+  - `data/db.json` – JSON storage (created on first run or by seed)
+- `client/`
+  - `index.html`, `src/` – Phaser 3 client, UI, HUD and netcode
+- `docs/`
+  - `api.md` – REST documentation
+  - `websocket-events.md` – realtime protocol
+  - `data-schema.md` – persistent schema
+- `seed/seed.js` – bootstraps JSON data
+- `render.yaml` – Render service definition
+- `Dockerfile` – container build
+
+---
+
+## Local Setup
+
+Requirements:
+
+- Node 18+
+- npm
 
 ```bash
-chess-multiplayer/
-  README.md
-  server/
-    package.json
-    .env.example
-    src/
-      index.js
-      config/
-        db.js
-        auth.js
-      models/
-        userModel.js
-        gameModel.js
-        banModel.js
-        reportModel.js
-        friendModel.js
-      utils/
-        elo.js
-        validation.js
-        security.js
-        chessEngine.js
-      middleware/
-        authMiddleware.js
-        rateLimit.js
-      routes/
-        authRoutes.js
-        userRoutes.js
-        gameRoutes.js
-        adminRoutes.js
-        friendRoutes.js
-      sockets/
-        index.js
-        matchmaking.js
-        gameManager.js
-      db/
-        schema.sql
-  client/
-    index.html
-    package.json
-    vite.config.js
-    postcss.config.cjs
-    tailwind.config.cjs
-    src/
-      main.jsx
-      App.jsx
-      router.jsx
-      api/
-        axios.js
-      context/
-        AuthContext.jsx
-        SocketContext.jsx
-        ThemeContext.jsx
-      components/
-        Layout.jsx
-        Navbar.jsx
-        ProtectedRoute.jsx
-        ChessBoard.jsx
-        GameSidebar.jsx
-        ChatPanel.jsx
-        TimerBar.jsx
-        RankBadge.jsx
-      pages/
-        Dashboard.jsx
-        Play.jsx
-        Ranked.jsx
-        AiMode.jsx
-        Leaderboard.jsx
-        Friends.jsx
-        History.jsx
-        Profile.jsx
-        Settings.jsx
-        AdminPanel.jsx
-        Login.jsx
-        Register.jsx
-```
-
----
-
-## Environment Variables
-
-### Server (`server/.env`)
-
-```env
-PORT=4000
-NODE_ENV=production
-DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DBNAME
-JWT_SECRET=super-secret-jwt-key
-CORS_ORIGIN=https://your-frontend-domain.com
-```
-
-### Client (`client/.env`)
-
-```env
-VITE_API_URL=https://your-backend-service.onrender.com
-```
-
----
-
-## Database Setup (PostgreSQL)
-
-On Render, create a PostgreSQL instance and set `DATABASE_URL` to the provided connection string.
-
-Locally, you can run:
-
-```bash
-createdb gifty_chess
-psql gifty_chess < server/db/schema.sql
-```
-
----
-
-## Local Development
-
-### Backend
-
-```bash
-cd server
+git clone <this-repo>
+cd arena-nemesis
 npm install
-npm run dev
+npm run seed
+npm start
 ```
 
-This starts the backend on `http://localhost:4000`.
+Then open `http://localhost:3000` in your browser.
 
-### Frontend
+Environment variables:
 
-```bash
-cd client
-npm install
-npm run dev
-```
+See `.env.example` for the full list:
 
-This starts the frontend on `http://localhost:5173` by default.
+- `PORT` – default 3000
+- `JWT_SECRET` – secret for signing tokens
+- `ADMIN_API_KEY` – admin REST access key
+- `SESSION_TICK_RATE` – server tick rate (20 recommended)
+- `DATA_DIR` – where the JSON database is stored
 
-Set `VITE_API_URL` in `client/.env`:
-
-```env
-VITE_API_URL=http://localhost:4000
-```
+You can use `NODE_ENV=development` to keep things verbose.
 
 ---
 
 ## Render Deployment
 
-### Backend (Web Service)
+1. Push this repository to GitHub.
+2. Create a new **Web Service** on Render, connect it to the repo.
+3. Render will automatically read `render.yaml` which sets:
+   - `buildCommand: "npm install && npm run seed"`
+   - `startCommand: "npm start"`
+4. Make sure you keep the free tier plan.
+5. Render uses an **ephemeral disk**:
+   - `server/data/db.json` lives on that disk.
+   - After restart the file may be gone.
+   - On each cold start `persistence.js` re-creates defaults if the JSON is missing or corrupt.
+   - `seed/seed.js` also provides initial cosmetics, battle pass, and a baseline meta block.
 
-- **Environment**: Node
-- **Build Command**: `cd server && npm install`
-- **Start Command**: `cd server && npm start`
-- **Environment variables**:
-  - `DATABASE_URL` (from Render PostgreSQL)
-  - `JWT_SECRET` (generate a secret)
-  - `CORS_ORIGIN` (your frontend URL, e.g. `https://gifty-chess.onrender.com`)
-
-### Frontend (Static Site)
-
-- **Build Command**: `cd client && npm install && npm run build`
-- **Publish Directory**: `client/dist`
-
-Set `VITE_API_URL` environment variable in Render to your backend URL.
+Because disk is ephemeral, long-term persistence is not guaranteed. The system is safe to restart and will always recover a valid JSON file.
 
 ---
 
-## API Routes
+## Matchmaking Logic
 
-### Auth
+Matchmaking queues are kept in memory:
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
+- Queues:
+  - `casual`
+  - `ranked`
+  - `training`
+  - `private`
+- Every tick (`matchmakingTick` from `matchmaking.js`) the server:
+  1. Sorts queued players by `joinedAt`.
+  2. Batches them into matches of size up to `MAX_PLAYERS_PER_MATCH`.
+  3. For ranked queues, players are sorted by ELO before splitting into teams, ensuring similar MMR on both sides.
+  4. Creates a `MatchInstance` via `GameServer.createMatch`.
 
-### Users / Leaderboard
+Private lobbies are stored as early `matches[]` records with `isPrivateLobby = true`. Lobby codes are six-character IDs.
 
-- `GET /api/users/me`
-- `GET /api/users/:id`
-- `GET /api/users/:id/stats`
-- `GET /api/users/leaderboard`
-
-### Games
-
-- `GET /api/games/my`
-- `GET /api/games/:id`
-
-### Friends
-
-- `GET /api/friends`
-- `POST /api/friends`
-- `POST /api/friends/accept`
-- `DELETE /api/friends/:id`
-
-### Admin (only username `Gifty`)
-
-- `GET /api/admin/users`
-- `POST /api/admin/ban`
-- `POST /api/admin/reset-elo`
-- `GET /api/admin/active-games`
-- `GET /api/admin/server-stats`
+Live queue status is delivered to the client via WebSocket events (and the REST `queue` endpoints).
 
 ---
 
-## WebSocket Events (Socket.IO)
+## Ranking System Math
 
-### Client → Server
+ELO implementation (`elo.js`):
 
-- `auth` – authenticate socket with JWT
-- `joinQueue` – join matchmaking queue
-- `leaveQueue` – leave queue
-- `createPrivateRoom`
-- `joinPrivateRoom`
-- `startAIGame`
-- `move`
-- `resign`
-- `offerDraw`
-- `respondDraw`
-- `requestRematch`
-- `sendChat`
-- `typing`
-- `joinSpectate`
+- Expected score:
 
-### Server → Client
+  ```js
+  expectedScore(ratingA, ratingB) {
+    return 1 / (1 + 10 ** ((ratingB - ratingA) / 400));
+  }
+  ```
 
-- `authSuccess` / `authError`
-- `queueUpdate`
-- `gameFound`
-- `gameState`
-- `moveMade`
-- `timerUpdate`
-- `gameOver`
-- `chatMessage`
-- `typing`
-- `spectateUpdate`
-- `error`
+- Update:
+
+  ```js
+  updateElo(rating, expected, score, k = 32) {
+    return Math.round(rating + k * (score - expected));
+  }
+  ```
+
+- Rank tiers (`config.js`):
+
+  ```js
+  [
+    { name: "Bronze", min: 0 },
+    { name: "Silver", min: 800 },
+    { name: "Gold", min: 1200 },
+    { name: "Platinum", min: 1600 },
+    { name: "Diamond", min: 2000 },
+    { name: "Nemesis", min: 2400 }
+  ];
+  ```
+
+On match end:
+
+- Determine winner (team A, team B or draw).
+- For each player:
+  - Calculate `score` (1 / 0 / 0.5).
+  - Update ELO using fixed K-factor.
+  - Map new ELO to rank tier.
+  - Update `wins`, `losses`, `kills`, `deaths`, `shotsFired`, `shotsHit`, `timePlayedSeconds`.
+  - Add XP and perform level-up logic.
+
+---
+
+## AI System
+
+AI bots are implemented in `ai.js` and integrated in `gameServer.js`:
+
+- Each bot has:
+  - `position`, `velocity`, `hp`
+  - `difficulty`: `"easy" | "normal" | "hard"`
+- Behavior loop (`botThink`):
+  - Runs every server tick.
+  - Selects the closest live human player as target.
+  - Moves toward that player (different speeds for difficulty levels).
+  - Has a difficulty-dependent chance to fire at the target.
+- Bots use exactly the same damage rules and hit processing as human players (server-side only).
+
+Bots are automatically added for:
+
+- Training mode
+- Practice range
+- Undersized matches where minimum players are not met
 
 ---
 
-## Start Commands for Render
+## Anti-Cheat System
 
-**Backend**
+Anti-cheat heuristics live in `antiCheat.js`:
 
-- Build: `cd server && npm install`
-- Start: `cd server && npm start`
+- **Packet-rate detection**:
+  - Counts packets per player per second.
+  - If packets exceed `MAX_PACKET_PER_SECOND`, flags a `packet_flood` suspicion.
+- **Speed-hack detection**:
+  - For each movement input, calculates `speedRatio = actualSpeed / maxSpeed`.
+  - If `speedRatio > SPEED_HACK_THRESHOLD`, logs a `speed_hack` suspicion.
+- **Aimbot suspicion**:
+  - Tracks last 100 shots (`hit`, `headshot` flags).
+  - If overall hit rate or headshot rate surpass a configured threshold, logs an `aimbot_suspect` event.
 
-**Frontend**
-
-- Build: `cd client && npm install && npm run build`
-- Publish directory: `client/dist`
+All cheat flags are pushed into `logs` via `logEvent` to be inspected from the admin panel endpoints (`/api/admin/logs`). Punishment is left to admin policy, but can easily be automated.
 
 ---
+
+## Data Persistence and Recovery
+
+`persistence.js` handles the JSON file lifecycle:
+
+- Ensures `DATA_DIR` exists.
+- On first run (or missing file), creates default structure with:
+  - `meta`, `store`, `battlePass`, empty arrays.
+- On load error (e.g., corrupted JSON):
+  - Renames existing file to `db_corrupt_<timestamp>.json`.
+  - Creates a fresh default file.
+- `saveSafe(db)`:
+  - Writes to `db.json.tmp` first.
+  - Renames tmp → `db.json` only after successful write, preventing partial corruption.
+
+This pattern is friendly to Render’s ephemeral filesystem while still being robust under crash scenarios.
+
+---
+
+## Security
+
+- Passwords are never stored in plaintext (bcrypt hash with salt).
+- JWT-based stateless sessions, 12-hour expiration.
+- All state changes (movement, shooting, scoring) are validated on the server.
+- Input events are rate-limited and analysed by the anti-cheat module.
+- IP-level rate limiting via `express-rate-limit` middleware.
+- Basic attack surface hardening through `helmet`.
+
+---
+
+## Notes
+
+This repository focuses deliberately on:
+
+- A working real-time loop and netcode.
+- Clean separation of REST, WebSocket, persistence, and gameplay logic.
+- A UI that is easy to extend with additional screens (store, loadouts, friends, clans, etc.).
+
+You can fork and evolve it into a fuller production system, add more maps, controllers, mobile input, voice chat, and a full admin web UI, while keeping the Render free tier compatibility.

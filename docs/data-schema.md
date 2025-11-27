@@ -1,0 +1,60 @@
+# Data Schema (lowdb JSON)
+
+Root object:
+
+- `meta`
+  - `version`: number
+  - `createdAt`: ISO string
+  - `lastSeasonReset`: ISO string
+- `users[]`
+  - `id`: string
+  - `username`: string
+  - `passwordHash`: string (bcrypt)
+  - `createdAt`: ISO string
+  - `level`: number
+  - `xp`: number
+  - `currency`: number
+  - `elo`: number
+  - `rank`: string
+  - `stats`
+    - `kills`: number
+    - `deaths`: number
+    - `wins`: number
+    - `losses`: number
+    - `shotsFired`: number
+    - `shotsHit`: number
+    - `timePlayedSeconds`: number
+  - `matches[]`: per-match history
+  - `cosmeticsOwned[]`: cosmetic ids
+  - `loadout`
+    - `primary`: string
+    - `secondary`: string
+    - `melee`: string
+    - `grenade`: string
+  - `friends[]`: user ids
+  - `partyId`: string or null
+  - `mute`: boolean
+  - `banned`: boolean
+- `matches[]`
+  - simple persistent record of previous matches and private lobbies
+- `leaderboards`
+  - `ranked[]`: snapshot of top ranked players
+  - `casual[]`: snapshot of casual stats
+- `bans[]`
+  - historic ban records
+- `cheats[]`
+  - cheat flags
+- `store`
+  - `currencyPerKill`: number
+  - `cosmetics[]`
+- `battlePass`
+  - `season`: number
+  - `tiers[]`
+    - `level`: number
+    - `reward`: "currency" | cosmetic id
+- `logs[]`
+  - `id`
+  - `time`
+  - `type`
+  - `message`
+  - additional diagnostic fields

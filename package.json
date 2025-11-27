@@ -1,13 +1,27 @@
 {
-  "name": "chess-arena",
+  "name": "arena-nemesis",
   "version": "1.0.0",
-  "private": true,
+  "description": "Arena Nemesis - file-backed multiplayer shooter for Render free tier",
+  "main": "server/index.js",
   "scripts": {
-    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
-    "build": "cd server && npm run build && cd ../client && npm run build",
-    "start": "cd server && npm start"
+    "start": "node server/index.js",
+    "seed": "node seed/seed.js",
+    "dev": "NODE_ENV=development node server/index.js"
   },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "lowdb": "^6.0.1",
+    "nanoid": "^5.0.7",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "type": "module"
 }

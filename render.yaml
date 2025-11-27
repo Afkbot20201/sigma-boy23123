@@ -1,30 +1,20 @@
 services:
   - type: web
-    name: chess-arena-client
-    env: static
-    buildCommand: cd client && npm install && npm run build
-    staticPublishPath: client/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  - type: web
-    name: chess-arena-api
+    name: arena-nemesis
     env: node
-    buildCommand: cd server && npm install && npm run build
-    startCommand: cd server && npm start
+    plan: free
+    buildCommand: "npm install && npm run seed"
+    startCommand: "npm start"
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 4000
-      - key: CLIENT_URL
-        fromService:
-          name: chess-arena-client
-          type: web
-          property: url
-      - key: DATABASE_URL
-        sync: false
+        value: 10000
       - key: JWT_SECRET
-        sync: false
+        generateValue: true
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: SESSION_TICK_RATE
+        value: "20"
+      - key: DATA_DIR
+        value: "./server/data"
