@@ -1,3 +1,4 @@
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -61,7 +62,7 @@ io.on("connection", socket => {
     socket.join(room);
     g.players.set(socket.id,name);
     if(!g.colors.has(socket.id)){
-      g.colors.set(socket.id, g.colors.has([...g.colors.keys()][0])?"b":"w");
+      g.colors.set(socket.id, g.colors.size===0?"w":"b");
     }
     const players=[];
     for(const [id,nm] of g.players.entries()){

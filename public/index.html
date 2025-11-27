@@ -1,29 +1,39 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Nemesis Chess</title>
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nemesis Chess</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 <style>
-body{margin:0;background:#0f172a;color:white;font-family:sans-serif}
-#menu,#game{padding:20px}
-.hidden{display:none}
-.square{width:60px;height:60px;display:flex;align-items:center;justify-content:center;font-size:36px}
-.light{background:#e5e7eb;color:#111}.dark{background:#4b5563}
-#board{display:grid;grid-template:repeat(8,60px)/repeat(8,60px)}
-#chat{height:120px;overflow:auto;border:1px solid #333;margin-top:6px}
-</style></head><body>
+body{margin:0;font-family:Orbitron;background:#020617;color:white}
+.panel{background:#0f172a;border-radius:16px;padding:16px;box-shadow:0 0 30px #6366f1}
+button,input{padding:10px;border-radius:8px;border:none}
+#menu{min-height:100vh;display:flex;align-items:center;justify-content:center}
+#game{display:none;padding:20px}
+#board{display:grid;grid-template:repeat(8,60px)/repeat(8,60px);margin-top:20px}
+.square{display:flex;align-items:center;justify-content:center;font-size:36px}
+.light{background:#e5e7eb;color:#111}.dark{background:#374151}
+</style>
+</head>
+<body>
 <div id="menu">
-<h2>Nemesis Chess</h2>
+<div class="panel">
+<h1>Nemesis Chess</h1>
 <input id="name" placeholder="Name"><br><br>
-<button onclick="friend()">Play Friend</button>
+<button onclick="friend()">Friend</button>
 <button onclick="ranked()">Ranked</button>
-<button onclick="ai()">Vs AI</button><br><br>
-<div id="friend" class="hidden">
-<button onclick="create()">Create</button>
+<button onclick="ai()">Vs AI</button>
+<div id="friendPanel" style="display:none">
+<br><button onclick="create()">Create</button>
 <input id="code" placeholder="Room">
 <button onclick="join()">Join</button>
 </div>
-<div id="status"></div>
+</div>
 </div>
 
-<div id="game" class="hidden">
-<div>Turn: <span id="turn">-</span></div>
+<div id="game">
+<div id="turn"></div>
 <div id="board"></div>
 <div id="chat"></div>
 <input id="msg"><button onclick="send()">Send</button>
@@ -33,12 +43,9 @@ body{margin:0;background:#0f172a;color:white;font-family:sans-serif}
 <script>
 const s=io();
 const boardEl=document.getElementById("board");
-const status=document.getElementById("status");
-const menu=document.getElementById("menu");
-const game=document.getElementById("game");
 let room,myColor,myName,turn,selected;
 
-function friend(){document.getElementById("friend").classList.remove("hidden");}
+function friend(){document.getElementById("friendPanel").style.display="block";}
 function ranked(){myName=name.value||"P";s.emit("rankedQueue",{name:myName});}
 function ai(){myName=name.value||"P";s.emit("aiGame",{name:myName},joinCB);}
 function create(){myName=name.value||"P";s.emit("create",{name:myName},r=>joinRoom(r.room));}
@@ -46,8 +53,10 @@ function join(){joinRoom(code.value);}
 
 function joinRoom(c){myName=name.value||"P";s.emit("join",{room:c,name:myName},joinCB);}
 function joinCB(r){
- if(!r.ok)return; room=r.room; myColor=r.color; turn=r.turn;
- menu.classList.add("hidden"); game.classList.remove("hidden");
+ if(!r.ok)return alert("Join failed");
+ room=r.room; myColor=r.color; turn=r.turn;
+ document.getElementById("menu").style.display="none";
+ document.getElementById("game").style.display="block";
  drawBoard(); render(r.fen);
 }
 
@@ -73,7 +82,9 @@ function clickSq(d){
  s.emit("move",{room,from:selected,to:d.dataset.sq},()=>{});
  selected=null;
 }
-s.on("state",st=>{turn=st.turn;document.getElementById("turn").textContent=turn;render(st.fen);});
+s.on("state",st=>{turn=st.turn;document.getElementById("turn").textContent="Turn: "+turn;render(st.fen);});
 function send(){s.emit("chat",{room,name:myName,msg:msg.value});msg.value="";}
 s.on("chat",c=>{chat.innerHTML+=`<div>${c.name}: ${c.msg}</div>`;});
-</script></body></html>
+</script>
+</body>
+</html>
