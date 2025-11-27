@@ -1,90 +1,12 @@
-
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Nemesis Chess</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-<style>
-body{margin:0;font-family:Orbitron;background:#020617;color:white}
-.panel{background:#0f172a;border-radius:16px;padding:16px;box-shadow:0 0 30px #6366f1}
-button,input{padding:10px;border-radius:8px;border:none}
-#menu{min-height:100vh;display:flex;align-items:center;justify-content:center}
-#game{display:none;padding:20px}
-#board{display:grid;grid-template:repeat(8,60px)/repeat(8,60px);margin-top:20px}
-.square{display:flex;align-items:center;justify-content:center;font-size:36px}
-.light{background:#e5e7eb;color:#111}.dark{background:#374151}
-</style>
+  <meta charset="utf-8"/>
+  <title>Multiplayer Shooter</title>
 </head>
 <body>
-<div id="menu">
-<div class="panel">
-<h1>Nemesis Chess</h1>
-<input id="name" placeholder="Name"><br><br>
-<button onclick="friend()">Friend</button>
-<button onclick="ranked()">Ranked</button>
-<button onclick="ai()">Vs AI</button>
-<div id="friendPanel" style="display:none">
-<br><button onclick="create()">Create</button>
-<input id="code" placeholder="Room">
-<button onclick="join()">Join</button>
-</div>
-</div>
-</div>
-
-<div id="game">
-<div id="turn"></div>
-<div id="board"></div>
-<div id="chat"></div>
-<input id="msg"><button onclick="send()">Send</button>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const s=io();
-const boardEl=document.getElementById("board");
-let room,myColor,myName,turn,selected;
-
-function friend(){document.getElementById("friendPanel").style.display="block";}
-function ranked(){myName=name.value||"P";s.emit("rankedQueue",{name:myName});}
-function ai(){myName=name.value||"P";s.emit("aiGame",{name:myName},joinCB);}
-function create(){myName=name.value||"P";s.emit("create",{name:myName},r=>joinRoom(r.room));}
-function join(){joinRoom(code.value);}
-
-function joinRoom(c){myName=name.value||"P";s.emit("join",{room:c,name:myName},joinCB);}
-function joinCB(r){
- if(!r.ok)return alert("Join failed");
- room=r.room; myColor=r.color; turn=r.turn;
- document.getElementById("menu").style.display="none";
- document.getElementById("game").style.display="block";
- drawBoard(); render(r.fen);
-}
-
-function drawBoard(){
- boardEl.innerHTML="";
- const ranks=[8,7,6,5,4,3,2,1], files=["a","b","c","d","e","f","g","h"];
- for(const r of ranks)for(const f of files){
-   const d=document.createElement("div");const sq=f+r;
-   d.className="square "+(((r+f.charCodeAt(0))%2)?"dark":"light");
-   d.dataset.sq=sq;d.onclick=()=>clickSq(d);boardEl.appendChild(d);
- }
-}
-function render(fen){
- const map={};const rows=fen.split(" ")[0].split("/");
- for(let i=0;i<8;i++){let f=1;for(const c of rows[i]){
-   if(/\d/.test(c))f+=+c; else{map[String.fromCharCode(96+f)+(8-i)]=c;f++;}
- }}
- document.querySelectorAll(".square").forEach(d=>d.textContent=map[d.dataset.sq]||"");
-}
-function clickSq(d){
- if(myColor!==turn)return;
- if(!selected){selected=d.dataset.sq;return;}
- s.emit("move",{room,from:selected,to:d.dataset.sq},()=>{});
- selected=null;
-}
-s.on("state",st=>{turn=st.turn;document.getElementById("turn").textContent="Turn: "+turn;render(st.fen);});
-function send(){s.emit("chat",{room,name:myName,msg:msg.value});msg.value="";}
-s.on("chat",c=>{chat.innerHTML+=`<div>${c.name}: ${c.msg}</div>`;});
-</script>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
 </body>
 </html>
