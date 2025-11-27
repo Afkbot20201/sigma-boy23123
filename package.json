@@ -1,13 +1,13 @@
 {
-  "name": "nemesis-big-ui",
+  "name": "chess-arena",
   "version": "1.0.0",
-  "main": "server.js",
+  "private": true,
   "scripts": {
-    "start": "node server.js"
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "build": "cd server && npm run build && cd ../client && npm run build",
+    "start": "cd server && npm start"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "chess.js": "^1.1.1"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
